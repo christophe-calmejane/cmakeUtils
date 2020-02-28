@@ -1,0 +1,6 @@
+[attr]text_lf text eol=lf
+[attr]text_crlf text eol=crlf
+
+*.txt			text_lf
+*.cmake			text_lf
+*.md			text_lf
