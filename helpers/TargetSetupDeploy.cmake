@@ -59,9 +59,9 @@ function(cu_target_setup_deploy TARGET_NAME)
 	get_target_property(_IS_BUNDLE ${TARGET_NAME} MACOSX_BUNDLE)
 
 	# We generate a cmake script that will contain all the commands
-	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/deploy.cmake)
+	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/cu_deploy.cmake)
 	# We also generate a deploy cache file so we are able to check if the deploy command has already been called
-	set(DEPLOY_STAMP ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/deploy.stamp)
+	set(DEPLOY_STAMP ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/cu_deploy.stamp)
 
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"if(EXISTS \"${DEPLOY_STAMP}\")\n"
