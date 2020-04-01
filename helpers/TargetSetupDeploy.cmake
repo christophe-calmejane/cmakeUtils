@@ -1,3 +1,14 @@
+###############################################################################
+### CMake script handling deployment of the runtime dependencies of a target
+
+# Avoid multi inclusion of this file
+if(CU_TARGET_SETUP_DEPLOY_INCLUDED)
+	return()
+endif()
+set(CU_TARGET_SETUP_DEPLOY_INCLUDED true)
+
+##################################
+# Internal function
 function(cu_private_target_list_link_libraries TARGET_NAME LIBRARY_DEPENDENCIES_OUTPUT QT_DEPENDENCIES_OUTPUT)
 	# Check if already visited
 	if(${TARGET_NAME} IN_LIST VISITED_DEPENDENCIES)
@@ -46,8 +57,12 @@ function(cu_private_target_list_link_libraries TARGET_NAME LIBRARY_DEPENDENCIES_
 	set(VISITED_DEPENDENCIES ${VISITED_DEPENDENCIES} PARENT_SCOPE)
 endfunction()
 
-# Copy all shared libraries the specified target depends on
-function(cu_target_setup_deploy TARGET_NAME)
+##################################
+# Deploy all runtime dependencies the specified target depends on
+# There are optional parameters:
+# - "INSTALL" flag, instructing the script to also install-deploy the runtime dependencies
+# - "QML_DIR <path>" option, overriding default QML_DIR folder
+function(cu_deploy_runtime_target TARGET_NAME)
 	set(VISITED_DEPENDENCIES)
 	cu_private_target_list_link_libraries(${TARGET_NAME} _LIBRARY_DEPENDENCIES_OUTPUT _QT_DEPENDENCIES_OUTPUT)
 
@@ -59,21 +74,18 @@ function(cu_target_setup_deploy TARGET_NAME)
 	get_target_property(_IS_BUNDLE ${TARGET_NAME} MACOSX_BUNDLE)
 
 	# We generate a cmake script that will contain all the commands
-	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/cu_deploy.cmake)
-	# We also generate a deploy cache file so we are able to check if the deploy command has already been called
-	set(DEPLOY_STAMP ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/cu_deploy.stamp)
+	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/cu_deploy_runtime_${TARGET_NAME}.cmake)
 
 	string(APPEND DEPLOY_SCRIPT_CONTENT
-		"if(EXISTS \"${DEPLOY_STAMP}\")\n"
-		"	return()\n"
-		"endif()\n"
-		"message(STATUS \"Deploying runtime dependencies..\")\n"
-		"file(WRITE \"${DEPLOY_STAMP}\" \"1\")\n")
+		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
+	)
 
 	cmake_parse_arguments(DEPLOY "INSTALL" "QML_DIR" "" ${ARGN})
 
+	# Handle non-Qt dependencies
 	if(_LIBRARY_DEPENDENCIES_OUTPUT)
 		list(REMOVE_DUPLICATES _LIBRARY_DEPENDENCIES_OUTPUT)
+		# Process each runtime dependency
 		foreach(_LIBRARY ${_LIBRARY_DEPENDENCIES_OUTPUT})
 			# If install deployement is requested
 			if(DEPLOY_INSTALL)
@@ -81,30 +93,43 @@ function(cu_target_setup_deploy TARGET_NAME)
 					install(
 						FILES $<TARGET_FILE:${_LIBRARY}>
 						DESTINATION bin)
+				# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
 				elseif(NOT _IS_BUNDLE)
-					# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
 					install(
-						FILES $<TARGET_FILE:${_LIBRARY}>
+						FILES $<TARGET_FILE:${_LIBRARY}> $<TARGET_SONAME_FILE:${_LIBRARY}>
 						DESTINATION lib)
 				endif()
 			endif()
 			# Copy shared library to the output build folder for easy debug
-			if(APPLE AND _IS_BUNDLE)
-				# For macOS bundle, we want to copy the file directly inside the bundle. Don't forget to copy the SONAME symlink
-				string(APPEND DEPLOY_SCRIPT_CONTENT
-					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Frameworks/\")\n")
-			elseif(WIN32)
+			if(WIN32)
 				# For windows, we copy in the same folder than the binary
 				string(APPEND DEPLOY_SCRIPT_CONTENT
-					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"$<TARGET_FILE_DIR:${TARGET_NAME}>\")\n")
+					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => $<TARGET_FILE_DIR:${TARGET_NAME}>\")\n"
+					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"$<TARGET_FILE_DIR:${TARGET_NAME}>\")\n"
+				)
 			else()
-				# For macOS non-bundle and linux, we copy in the lib folder
+				if(APPLE AND _IS_BUNDLE)
+					# For macOS bundle, we want to copy the file directly inside the bundle
+					set(DEST_FOLDER "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Frameworks/")
+				else()
+					# For macOS non-bundle and linux, we copy in the lib folder
+					set(DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib")
+				endif()
+
+				# Copy dynamic library and don't forget to copy the SONAME symlink if it exists
 				string(APPEND DEPLOY_SCRIPT_CONTENT
-					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib\")\n")
+					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => ${DEST_FOLDER}\")\n"
+					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib\")\n"
+					"if(NOT \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" STREQUAL \"$<TARGET_FILE:${_LIBRARY}>\")\n"
+					"\tmessage(\" - Copying $<TARGET_SONAME_FILE:${_LIBRARY}> => $<TARGET_FILE_DIR:${TARGET_NAME}>/../lib\")\n"
+					"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${DEST_FOLDER}\")\n"
+					"endif()\n"
+				)
 			endif()
 		endforeach()
 	endif()
 
+	# Handle Qt dependencies
 	if(_QT_DEPENDENCIES_OUTPUT)
 		list(REMOVE_DUPLICATES _QT_DEPENDENCIES_OUTPUT)
 		if(WIN32 OR APPLE)
@@ -134,12 +159,14 @@ function(cu_target_setup_deploy TARGET_NAME)
 				foreach(_QT_DEPENDENCY ${_QT_DEPENDENCIES_OUTPUT})
 					# Run deploy and in a specific directory
 					string(APPEND DEPLOY_SCRIPT_CONTENT
-						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" -verbose 0 --dir \"$<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt\" --no-patchqt -no-translations -no-system-d3d-compiler --no-compiler-runtime --no-webkit2 -no-angle --no-opengl-sw --qmldir \"${DEPLOY_QML_DIR}\" \"$<TARGET_FILE:${_QT_DEPENDENCY}>\")\n")
+						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" -verbose 0 --dir \"$<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt\" --no-patchqt -no-translations -no-system-d3d-compiler --no-compiler-runtime --no-webkit2 -no-angle --no-opengl-sw --qmldir \"${DEPLOY_QML_DIR}\" \"$<TARGET_FILE:${_QT_DEPENDENCY}>\")\n"
+					)
 				endforeach()
 
 				# Copy the deployed content next to the target binary
 				string(APPEND DEPLOY_SCRIPT_CONTENT
-					"execute_process(COMMAND \"${CMAKE_COMMAND}\" -E copy_directory \"$<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt\" \"$<TARGET_FILE_DIR:${TARGET_NAME}>\")\n")
+					"execute_process(COMMAND \"${CMAKE_COMMAND}\" -E copy_directory \"$<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt\" \"$<TARGET_FILE_DIR:${TARGET_NAME}>\")\n"
+				)
 
 				# Mark the deploy folder if required for install
 				if(DEPLOY_INSTALL)
@@ -147,35 +174,29 @@ function(cu_target_setup_deploy TARGET_NAME)
 				endif()
 			elseif(APPLE)
 				if(NOT _IS_BUNDLE)
-					message(WARNING "Cannot deploy Qt dependencies on non-bundle application target ${TARGET_NAME}")
+				message(WARNING "Qt on macOS is only supported for BUNDLE applications (Convert ${TARGET_NAME} to a BUNDLE application)")
 				else()
 					string(APPEND DEPLOY_SCRIPT_CONTENT
 						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" \"$<TARGET_BUNDLE_DIR:${TARGET_NAME}>\" -verbose=0 -qmldir=${DEPLOY_QML_DIR} \"-codesign=${LA_TEAM_IDENTIFIER}\")\n"
-						)
+					)
 				endif()
 			endif()
 		endif()
 	endif()
 
+	string(APPEND DEPLOY_SCRIPT_CONTENT
+		"message(STATUS \"Done\")\n"
+	)
+
+	# Write to a cmake file
 	file(GENERATE
 		OUTPUT ${DEPLOY_SCRIPT}
-		CONTENT ${DEPLOY_SCRIPT_CONTENT})
-
-	# Create a target that will take care of the dependencies
-	if(DEPLOY_INSTALL)
-		add_custom_target(deploy_${TARGET_NAME} ALL
-			COMMAND ${CMAKE_COMMAND} -E remove -f ${DEPLOY_STAMP}
-			COMMAND ${CMAKE_COMMAND} -P ${DEPLOY_SCRIPT}
-			DEPENDS ${TARGET_NAME})
-	else()
-		add_custom_target(deploy_${TARGET_NAME}
-			COMMAND ${CMAKE_COMMAND} -E remove -f ${DEPLOY_STAMP}
-			COMMAND ${CMAKE_COMMAND} -P ${DEPLOY_SCRIPT}
-			DEPENDS ${TARGET_NAME})
-	endif()
+		CONTENT ${DEPLOY_SCRIPT_CONTENT}
+	)
 
 	# Finally, run the deploy script as POST_BUILD command on the target
 	add_custom_command(TARGET ${TARGET_NAME}
 		POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -P ${DEPLOY_SCRIPT})
+		COMMAND ${CMAKE_COMMAND} -P ${DEPLOY_SCRIPT}
+	)
 endfunction()
