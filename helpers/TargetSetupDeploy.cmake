@@ -119,9 +119,9 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				# Copy dynamic library and don't forget to copy the SONAME symlink if it exists
 				string(APPEND DEPLOY_SCRIPT_CONTENT
 					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => ${DEST_FOLDER}\")\n"
-					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib\")\n"
-					"if(NOT \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" STREQUAL \"$<TARGET_FILE:${_LIBRARY}>\")\n"
-					"\tmessage(\" - Copying $<TARGET_SONAME_FILE:${_LIBRARY}> => $<TARGET_FILE_DIR:${TARGET_NAME}>/../lib\")\n"
+					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"${DEST_FOLDER}\")\n"
+					"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
+					"\tmessage(\" - Copying SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${DEST_FOLDER}\")\n"
 					"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${DEST_FOLDER}\")\n"
 					"endif()\n"
 				)
