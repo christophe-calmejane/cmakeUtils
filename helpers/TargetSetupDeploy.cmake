@@ -7,6 +7,8 @@ if(CU_TARGET_SETUP_DEPLOY_INCLUDED)
 endif()
 set(CU_TARGET_SETUP_DEPLOY_INCLUDED true)
 
+set(CU_TARGET_SETUP_DEPLOY_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
+
 ##################################
 # Internal function
 function(cu_private_target_list_link_libraries TARGET_NAME LIBRARY_DEPENDENCIES_OUTPUT QT_DEPENDENCIES_OUTPUT)
@@ -59,7 +61,9 @@ endfunction()
 
 ##################################
 # Deploy all runtime dependencies the specified target depends on
-# There are optional parameters:
+# Mandatory parameters:
+#  - VCPKG_INSTALLED_PATH <vcpkg installed folder>
+# Optional parameters:
 # - "INSTALL" flag, instructing the script to also install-deploy the runtime dependencies
 # - "QML_DIR <path>" option, overriding default QML_DIR folder
 function(cu_deploy_runtime_target TARGET_NAME)
@@ -80,7 +84,38 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
 	)
 
-	cmake_parse_arguments(DEPLOY "INSTALL" "QML_DIR" "" ${ARGN})
+	cmake_parse_arguments(DEPLOY "INSTALL" "QML_DIR;VCPKG_INSTALLED_PATH" "" ${ARGN})
+
+	# Check required parameters validity
+	if(NOT DEPLOY_VCPKG_INSTALLED_PATH)
+		message(FATAL_ERROR "VCPKG_INSTALLED_PATH required")
+	endif()
+
+	# Compute runtime libraries destination folder
+	get_filename_component(INSTALL_BASE_FOLDER "${CMAKE_INSTALL_PREFIX}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
+	if(CMAKE_HOST_WIN32)
+		# For windows, we copy in the same folder than the binary
+		set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>")
+		# And install in the bin folder
+		set(RUNTIME_LIBRARIES_INST_FOLDER "${INSTALL_BASE_FOLDER}/bin")
+	else()
+		if(APPLE AND _IS_BUNDLE)
+			# For macOS bundle, we want to copy the file directly inside the bundle
+			set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Frameworks/")
+			# We don't want to install, as we'll copy the whole bundle
+		else()
+			# For macOS non-bundle and linux, we copy in the lib folder
+			set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib")
+			# And install in the lib folder
+			set(RUNTIME_LIBRARIES_INST_FOLDER "${INSTALL_BASE_FOLDER}/lib")
+		endif()
+	endif()
+
+	if(DEPLOY_INSTALL)
+		install(CODE
+			"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/DeployBinaryDependencies.cmake\")"
+		)
+	endif()
 
 	# Handle non-Qt dependencies
 	if(_LIBRARY_DEPENDENCIES_OUTPUT)
@@ -89,40 +124,39 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		foreach(_LIBRARY ${_LIBRARY_DEPENDENCIES_OUTPUT})
 			# If install deployement is requested
 			if(DEPLOY_INSTALL)
-				if(WIN32)
+				if(CMAKE_HOST_WIN32)
+					# Classic install
 					install(
 						FILES $<TARGET_FILE:${_LIBRARY}>
-						DESTINATION bin)
+						DESTINATION bin
+					)
+					# Runtime dependencies install
+					install(CODE
+						"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_INST_FOLDER}\")"
+					)
 				# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
 				elseif(NOT _IS_BUNDLE)
 					install(
 						FILES $<TARGET_FILE:${_LIBRARY}> $<TARGET_SONAME_FILE:${_LIBRARY}>
-						DESTINATION lib)
+						DESTINATION lib
+					)
 				endif()
 			endif()
 			# Copy shared library to the output build folder for easy debug
-			if(WIN32)
+			if(CMAKE_HOST_WIN32)
 				# For windows, we copy in the same folder than the binary
 				string(APPEND DEPLOY_SCRIPT_CONTENT
-					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => $<TARGET_FILE_DIR:${TARGET_NAME}>\")\n"
+					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
 					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"$<TARGET_FILE_DIR:${TARGET_NAME}>\")\n"
 				)
 			else()
-				if(APPLE AND _IS_BUNDLE)
-					# For macOS bundle, we want to copy the file directly inside the bundle
-					set(DEST_FOLDER "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Frameworks/")
-				else()
-					# For macOS non-bundle and linux, we copy in the lib folder
-					set(DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib")
-				endif()
-
 				# Copy dynamic library and don't forget to copy the SONAME symlink if it exists
 				string(APPEND DEPLOY_SCRIPT_CONTENT
-					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => ${DEST_FOLDER}\")\n"
-					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"${DEST_FOLDER}\")\n"
+					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
 					"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
-					"\tmessage(\" - Copying SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${DEST_FOLDER}\")\n"
-					"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${DEST_FOLDER}\")\n"
+					"\tmessage(\" - Copying SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+					"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
 					"endif()\n"
 				)
 			endif()
@@ -132,7 +166,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# Handle Qt dependencies
 	if(_QT_DEPENDENCIES_OUTPUT)
 		list(REMOVE_DUPLICATES _QT_DEPENDENCIES_OUTPUT)
-		if(WIN32 OR APPLE)
+		if(CMAKE_HOST_WIN32 OR APPLE)
 			if(NOT TARGET Qt5::qmake)
 				message(FATAL_ERROR "Cannot find Qt5::qmake")
 			endif()
@@ -140,7 +174,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			get_target_property(_QMAKE_LOCATION Qt5::qmake IMPORTED_LOCATION)
 			get_filename_component(_DEPLOYQT_DIR ${_QMAKE_LOCATION} DIRECTORY)
 
-			if(WIN32)
+			if(CMAKE_HOST_WIN32)
 				file(TO_CMAKE_PATH "${_DEPLOYQT_DIR}/windeployqt" DEPLOY_QT_COMMAND)
 			elseif(APPLE)
 				file(TO_CMAKE_PATH "${_DEPLOYQT_DIR}/macdeployqt" DEPLOY_QT_COMMAND)
@@ -150,7 +184,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				set(DEPLOY_QML_DIR ".")
 			endif()
 
-			if(WIN32)
+			if(CMAKE_HOST_WIN32)
 				# We also need to run deploy on the target executable so add it at the end of the list
 				list(REMOVE_ITEM _QT_DEPENDENCIES_OUTPUT ${TARGET_NAME})
 				list(APPEND _QT_DEPENDENCIES_OUTPUT ${TARGET_NAME})
@@ -184,6 +218,12 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		endif()
 	endif()
 
+	# Setup call for binary deploy script
+	string(APPEND DEPLOY_SCRIPT_CONTENT
+		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/DeployBinaryDependencies.cmake\")\n"
+		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+	)
+
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"message(STATUS \"Done\")\n"
 	)
@@ -198,5 +238,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	add_custom_command(TARGET ${TARGET_NAME}
 		POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -P ${DEPLOY_SCRIPT}
+		VERBATIM
 	)
 endfunction()
