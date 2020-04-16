@@ -62,10 +62,14 @@ endfunction()
 ##################################
 # Deploy all runtime dependencies the specified target depends on
 # Mandatory parameters:
-#  - VCPKG_INSTALLED_PATH <vcpkg installed folder>
+#  - "VCPKG_INSTALLED_PATH <vcpkg installed folder>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 # Optional parameters:
-# - "INSTALL" flag, instructing the script to also install-deploy the runtime dependencies
-# - "QML_DIR <path>" option, overriding default QML_DIR folder
+#  - "INSTALL" => flag instructing the script to also install-deploy the runtime dependencies
+#  - "QML_DIR <path>" => override default QML_DIR folder
+#  - "SIGNTOOL_OPTIONS <windows signtool options>..." => list of options to pass to windows signtool utility (signing will be done on all runtime dependencies if this is specified)
+#  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
+#  - "CODESIGN_OPTIONS <macOS codesign options>..." => list of options to pass to macOS codesign utility (signing will be done on all runtime dependencies if this is specified)
+#  - "CODESIGN_IDENTITY <signing identity>" => code signing identity to be used by macOS codesign utility (autodetect will be used if not specified)
 function(cu_deploy_runtime_target TARGET_NAME)
 	set(VISITED_DEPENDENCIES)
 	cu_private_target_list_link_libraries(${TARGET_NAME} _LIBRARY_DEPENDENCIES_OUTPUT _QT_DEPENDENCIES_OUTPUT)
@@ -82,9 +86,10 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
+		"set(BINARIES_TO_SIGN)\n"
 	)
 
-	cmake_parse_arguments(DEPLOY "INSTALL" "QML_DIR;VCPKG_INSTALLED_PATH" "" ${ARGN})
+	cmake_parse_arguments(DEPLOY "INSTALL" "QML_DIR;VCPKG_INSTALLED_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT DEPLOY_VCPKG_INSTALLED_PATH)
@@ -154,6 +159,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				string(APPEND DEPLOY_SCRIPT_CONTENT
 					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
 					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+					"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_DEST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")\n"
 					"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
 					"\tmessage(\" - Copying SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
 					"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
@@ -221,12 +227,32 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# Setup call for binary deploy script
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/DeployBinaryDependencies.cmake\")\n"
-		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_DEST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
 	)
 
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"message(STATUS \"Done\")\n"
 	)
+
+	# If code signing is requested
+	if(DEPLOY_SIGNTOOL_OPTIONS OR DEPLOY_CODESIGN_OPTIONS)
+		# Expand options lists
+		string(REPLACE ";" " " SIGNTOOL_OPTIONS "${DEPLOY_SIGNTOOL_OPTIONS}")
+		string(REPLACE ";" " " SIGNTOOL_AGAIN_OPTIONS "${DEPLOY_SIGNTOOL_AGAIN_OPTIONS}")
+		string(REPLACE ";" " " CODESIGN_OPTIONS "${DEPLOY_CODESIGN_OPTIONS}")
+
+		string(APPEND DEPLOY_SCRIPT_CONTENT
+			"message(STATUS \"Code signing runtime dependencies for ${TARGET_NAME}...\")\n"
+			"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/SignBinary.cmake\")\n"
+			"foreach(DEP \${BINARIES_TO_SIGN})\n"
+			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})\n"
+			"endforeach()\n"
+			"foreach(DEP \${COPIED_FILES})\n"
+			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})\n"
+			"endforeach()\n"
+			"message(STATUS \"Done\")\n"
+		)
+	endif()
 
 	# Write to a cmake file
 	file(GENERATE

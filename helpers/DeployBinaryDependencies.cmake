@@ -66,17 +66,17 @@ endfunction()
 # Internal function
 function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLDER)
 	# Get target binary name and folder
-	get_filename_component(BINARY_NAME ${BINARY_PATH} NAME)
-	get_filename_component(BINARY_FOLDER ${BINARY_PATH} DIRECTORY)
+	get_filename_component(BINARY_NAME "${BINARY_PATH}" NAME)
+	get_filename_component(BINARY_FOLDER "${BINARY_PATH}" DIRECTORY)
 
 	# Check if already visited
-	if(${BINARY_NAME} IN_LIST VISITED_DEPENDENCIES)
+	if("${BINARY_NAME}" IN_LIST VISITED_DEPENDENCIES)
 		# message(STATUS "Already visited dependency ${BINARY_NAME}")
 		return()
 	endif()
 	
 	# Add to visited dependencies
-	list(APPEND VISITED_DEPENDENCIES ${BINARY_NAME})
+	list(APPEND VISITED_DEPENDENCIES "${BINARY_NAME}")
 	
 	# message(STATUS "Binary Name: ${BINARY_NAME}")
 	# message(STATUS "Binary Folder: ${BINARY_FOLDER}")
@@ -102,7 +102,7 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 		elseif(EXISTS "${DEPLOY_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
 			set(DEPENDENCY_PATH "${DEPLOY_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
 			# Add to the list of files to copy
-			if(NOT ${DEPENDENCY_PATH} IN_LIST BINARY_DEPENDENCIES)
+			if(NOT "${DEPENDENCY_PATH}" IN_LIST BINARY_DEPENDENCIES)
 				list(APPEND BINARY_DEPENDENCIES "${DEPENDENCY_PATH}")
 			endif()
 			# message(STATUS "Process vcpkg dependency ${DEPENDENCY}...")
@@ -124,12 +124,14 @@ endfunction()
 ########
 # Deploy all runtime dependencies a binary depends on
 # Mandatory parameters:
-#  - BINARY_PATH <binary path>
-#  - INSTALLED_DIR <vcpkg installed directory>
-#  - TARGET_DIR <target copy directory>
+#  - "BINARY_PATH <binary path>" => Path of the binary to sign
+#  - "INSTALLED_DIR <vcpkg installed directory>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
+#  - "TARGET_DIR <target copy directory>" => directory where to copy runtime dependencies
+# Optional parameters:
+#  - "COPIED_FILES_VAR <list of copied files>" => variable receiving the list of copied files, if specified
 function(cu_deploy_runtime_binary)
 	# Parse arguments
-	cmake_parse_arguments(DEPLOY "" "BINARY_PATH;INSTALLED_DIR;TARGET_DIR" "" ${ARGN})
+	cmake_parse_arguments(DEPLOY "" "BINARY_PATH;INSTALLED_DIR;TARGET_DIR;COPIED_FILES_VAR" "" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT DEPLOY_BINARY_PATH)
@@ -158,11 +160,24 @@ function(cu_deploy_runtime_binary)
 	set(BINARY_DEPENDENCIES)
 	cu_private_get_binary_dependencies_to_copy("${DEPLOY_BINARY_PATH}" "${DEPLOY_TARGET_DIR}")
 
+	set(COPIED_FILES)
 	foreach(DEP ${BINARY_DEPENDENCIES})
+		# Copy the file
 		message(" - Copying ${DEP} => ${DEPLOY_TARGET_DIR}")
 		file(COPY "${DEP}" DESTINATION "${DEPLOY_TARGET_DIR}" FOLLOW_SYMLINK_CHAIN)
+
+		# Build copied file full path
+		get_filename_component(BINARY_NAME ${DEP} NAME)
+		set(COPIED_FILE "${DEPLOY_TARGET_DIR}/${BINARY_NAME}")
+
+		# Add to the list of copied files
+		list(APPEND COPIED_FILES "${COPIED_FILE}")
 	endforeach()
 
+	# If asked to return copied files
+	if(DEPLOY_COPIED_FILES_VAR)
+		set(${DEPLOY_COPIED_FILES_VAR} ${COPIED_FILES} PARENT_SCOPE)
+	endif()
 endfunction()
 
 cmake_policy(POP)
