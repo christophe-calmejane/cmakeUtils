@@ -36,6 +36,25 @@ function(cu_private_get_binary_dependencies BINARY_PATH LIBRARY_DEPENDENCIES_OUT
 			list(APPEND ${LIBRARY_DEPENDENCIES_OUTPUT} "${DEPENDENCY}")
 		endforeach()
 
+	elseif(CMAKE_HOST_APPLE)
+		set(OTOOL_COMMAND "otool")
+
+		# Get binary dependencies
+		execute_process(COMMAND ${OTOOL_COMMAND} -L ${BINARY_NAME} WORKING_DIRECTORY ${BINARY_FOLDER} RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
+		if(NOT ${CMD_RESULT} EQUAL 0)
+			message(FATAL_ERROR "Failed to get binary dependencies: ${CMD_RESULT}")
+		endif()
+
+		# Since CMake regex does not support lookaround and capture groups do not return all results in a MATCHALL, we split the output result in lines, then match a single expression for each line
+		string(REGEX MATCHALL "[^\n]+" SPLIT_LINES ${CMD_OUTPUT})
+		foreach(LINE ${SPLIT_LINES})
+			string(REGEX MATCH "@rpath/([^\n]+\\.dylib)" MATCH_RESULT ${LINE})
+			if(CMAKE_MATCH_COUNT EQUAL 1)
+				# Append to list
+				list(APPEND ${LIBRARY_DEPENDENCIES_OUTPUT} "${CMAKE_MATCH_1}")
+			endif()
+		endforeach()
+
 	else()
 		message(FATAL_ERROR "TODO")
 	endif()
@@ -52,7 +71,7 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 
 	# Check if already visited
 	if(${BINARY_NAME} IN_LIST VISITED_DEPENDENCIES)
-		message(STATUS "Already visited dependency ${BINARY_NAME}")
+		# message(STATUS "Already visited dependency ${BINARY_NAME}")
 		return()
 	endif()
 	
@@ -65,6 +84,14 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 	# Get binary dependencies
 	cu_private_get_binary_dependencies("${BINARY_PATH}" DEPENDENCIES_LIST)
 
+	if(CMAKE_HOST_WIN32)
+		set(VCPKG_INSTALLED_RUNTIME_FOLDER "bin")
+	elseif(CMAKE_HOST_APPLE)
+		set(VCPKG_INSTALLED_RUNTIME_FOLDER "lib")
+	else()
+		message(FATAL_ERROR "TODO")
+	endif()
+
 	foreach(DEPENDENCY ${DEPENDENCIES_LIST})
 		# First check if we can find this binary in destination folder
 		if(EXISTS "${DESTINATION_FOLDER}/${DEPENDENCY}")
@@ -72,10 +99,10 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 			# message(STATUS "Process already deployed dependency ${DEPENDENCY}...")
 
 		# Then check if we can find this binary in vcpkg installed directory
-		elseif(EXISTS "${DEPLOY_INSTALLED_DIR}/bin/${DEPENDENCY}")
-			set(DEPENDENCY_PATH "${DEPLOY_INSTALLED_DIR}/bin/${DEPENDENCY}")
+		elseif(EXISTS "${DEPLOY_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
+			set(DEPENDENCY_PATH "${DEPLOY_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
 			# Add to the list of files to copy
-			if(NOT ${DEPENDENCY} IN_LIST BINARY_DEPENDENCIES)
+			if(NOT ${DEPENDENCY_PATH} IN_LIST BINARY_DEPENDENCIES)
 				list(APPEND BINARY_DEPENDENCIES "${DEPENDENCY_PATH}")
 			endif()
 			# message(STATUS "Process vcpkg dependency ${DEPENDENCY}...")
@@ -133,7 +160,7 @@ function(cu_deploy_runtime_binary)
 
 	foreach(DEP ${BINARY_DEPENDENCIES})
 		message(" - Copying ${DEP} => ${DEPLOY_TARGET_DIR}")
-		file(COPY "${DEP}" DESTINATION "${DEPLOY_TARGET_DIR}")
+		file(COPY "${DEP}" DESTINATION "${DEPLOY_TARGET_DIR}" FOLLOW_SYMLINK_CHAIN)
 	endforeach()
 
 endfunction()
