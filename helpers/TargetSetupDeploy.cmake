@@ -84,11 +84,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# We generate a cmake script that will contain all the commands
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/cu_deploy_runtime_${TARGET_NAME}.cmake)
 
-	string(APPEND DEPLOY_SCRIPT_CONTENT
-		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
-		"set(BINARIES_TO_SIGN)\n"
-	)
-
 	cmake_parse_arguments(DEPLOY "INSTALL" "QML_DIR;VCPKG_INSTALLED_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
 
 	# Check required parameters validity
@@ -116,9 +111,22 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		endif()
 	endif()
 
+	# Init code for both easy-debug and install scripts
+	string(CONCAT INIT_CODE
+		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/DeployBinaryDependencies.cmake\")\n"
+		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/SignBinary.cmake\")\n"
+		"set(BINARIES_TO_SIGN)\n"
+		"set(COPIED_FILES)\n"
+	)
+
+	string(APPEND DEPLOY_SCRIPT_CONTENT
+		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
+		"${INIT_CODE}"
+	)
+
 	if(DEPLOY_INSTALL)
 		install(CODE
-			"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/DeployBinaryDependencies.cmake\")"
+			"${INIT_CODE}"
 		)
 	endif()
 
@@ -127,7 +135,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		list(REMOVE_DUPLICATES _LIBRARY_DEPENDENCIES_OUTPUT)
 		# Process each runtime dependency
 		foreach(_LIBRARY ${_LIBRARY_DEPENDENCIES_OUTPUT})
-			# If install deployement is requested
+			# If install deployment is requested
 			if(DEPLOY_INSTALL)
 				if(CMAKE_HOST_WIN32)
 					# Classic install
@@ -137,35 +145,31 @@ function(cu_deploy_runtime_target TARGET_NAME)
 					)
 					# Runtime dependencies install
 					install(CODE
-						"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_INST_FOLDER}\")"
+						"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_INST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")"
 					)
 				# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
 				elseif(NOT _IS_BUNDLE)
+					# Classic install
 					install(
 						FILES $<TARGET_FILE:${_LIBRARY}> $<TARGET_SONAME_FILE:${_LIBRARY}>
 						DESTINATION lib
 					)
+					# Runtime dependencies install
+					install(CODE
+						"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_INST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")"
+					)
 				endif()
 			endif()
-			# Copy shared library to the output build folder for easy debug
-			if(CMAKE_HOST_WIN32)
-				# For windows, we copy in the same folder than the binary
-				string(APPEND DEPLOY_SCRIPT_CONTENT
-					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"$<TARGET_FILE_DIR:${TARGET_NAME}>\")\n"
-				)
-			else()
-				# Copy dynamic library and don't forget to copy the SONAME symlink if it exists
-				string(APPEND DEPLOY_SCRIPT_CONTENT
-					"message(\" - Copying $<TARGET_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-					"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-					"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_DEST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")\n"
-					"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
-					"\tmessage(\" - Copying SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-					"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-					"endif()\n"
-				)
-			endif()
+			# Copy dynamic library to the output build folder for easy-debug (and don't forget to copy the SONAME symlink if it exists, no need to sign it as it's a symlink)
+			string(APPEND DEPLOY_SCRIPT_CONTENT
+				"message(\" - Copying target file $<TARGET_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+				"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+				"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_DEST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")\n"
+				"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
+				"\tmessage(\" - Copying target file SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+				"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+				"endif()\n"
+			)
 		endforeach()
 	endif()
 
@@ -224,12 +228,19 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		endif()
 	endif()
 
-	# Setup call for binary deploy script
+	# Call deploy non-qt runtime (to handle transitive dependencies) for easy-debug
 	string(APPEND DEPLOY_SCRIPT_CONTENT
-		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/DeployBinaryDependencies.cmake\")\n"
 		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_DEST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
 	)
 
+	if(DEPLOY_INSTALL)
+		# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
+		install(CODE
+			 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_INST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
+		)
+	endif()
+
+	# Done for deployment
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"message(STATUS \"Done\")\n"
 	)
@@ -241,17 +252,27 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		string(REPLACE ";" " " SIGNTOOL_AGAIN_OPTIONS "${DEPLOY_SIGNTOOL_AGAIN_OPTIONS}")
 		string(REPLACE ";" " " CODESIGN_OPTIONS "${DEPLOY_CODESIGN_OPTIONS}")
 
-		string(APPEND DEPLOY_SCRIPT_CONTENT
-			"message(STATUS \"Code signing runtime dependencies for ${TARGET_NAME}...\")\n"
-			"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/SignBinary.cmake\")\n"
+		# Codesigning code for both easy-debug and install scripts
+		string(CONCAT CODESIGNING_CODE
 			"foreach(DEP \${BINARIES_TO_SIGN})\n"
 			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})\n"
 			"endforeach()\n"
 			"foreach(DEP \${COPIED_FILES})\n"
 			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})\n"
 			"endforeach()\n"
+		)
+
+		string(APPEND DEPLOY_SCRIPT_CONTENT
+			"message(STATUS \"Code signing runtime dependencies for ${TARGET_NAME}...\")\n"
+			"${CODESIGNING_CODE}"
 			"message(STATUS \"Done\")\n"
 		)
+
+		if(DEPLOY_INSTALL)
+			install(CODE
+				"${CODESIGNING_CODE}"
+			)
+		endif()
 	endif()
 
 	# Write to a cmake file

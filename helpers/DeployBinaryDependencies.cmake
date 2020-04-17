@@ -128,7 +128,7 @@ endfunction()
 #  - "INSTALLED_DIR <vcpkg installed directory>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 #  - "TARGET_DIR <target copy directory>" => directory where to copy runtime dependencies
 # Optional parameters:
-#  - "COPIED_FILES_VAR <list of copied files>" => variable receiving the list of copied files, if specified
+#  - "COPIED_FILES_VAR <list of copied files>" => variable receiving the list of copied files (files are appended to this list variable, if it's specified)
 function(cu_deploy_runtime_binary)
 	# Parse arguments
 	cmake_parse_arguments(DEPLOY "" "BINARY_PATH;INSTALLED_DIR;TARGET_DIR;COPIED_FILES_VAR" "" ${ARGN})
@@ -160,10 +160,9 @@ function(cu_deploy_runtime_binary)
 	set(BINARY_DEPENDENCIES)
 	cu_private_get_binary_dependencies_to_copy("${DEPLOY_BINARY_PATH}" "${DEPLOY_TARGET_DIR}")
 
-	set(COPIED_FILES)
 	foreach(DEP ${BINARY_DEPENDENCIES})
 		# Copy the file
-		message(" - Copying ${DEP} => ${DEPLOY_TARGET_DIR}")
+		message(" - Copying transitive dependency ${DEP} => ${DEPLOY_TARGET_DIR}")
 		file(COPY "${DEP}" DESTINATION "${DEPLOY_TARGET_DIR}" FOLLOW_SYMLINK_CHAIN)
 
 		# Build copied file full path
@@ -171,12 +170,13 @@ function(cu_deploy_runtime_binary)
 		set(COPIED_FILE "${DEPLOY_TARGET_DIR}/${BINARY_NAME}")
 
 		# Add to the list of copied files
-		list(APPEND COPIED_FILES "${COPIED_FILE}")
+		if(DEPLOY_COPIED_FILES_VAR)
+			list(APPEND ${DEPLOY_COPIED_FILES_VAR} "${COPIED_FILE}")
+		endif()
 	endforeach()
 
-	# If asked to return copied files
 	if(DEPLOY_COPIED_FILES_VAR)
-		set(${DEPLOY_COPIED_FILES_VAR} ${COPIED_FILES} PARENT_SCOPE)
+		set(${DEPLOY_COPIED_FILES_VAR} ${${DEPLOY_COPIED_FILES_VAR}} PARENT_SCOPE)
 	endif()
 endfunction()
 
