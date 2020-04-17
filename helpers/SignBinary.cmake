@@ -1,6 +1,8 @@
 ###############################################################################
 ### CMake script handling code signing of the binary
 
+cmake_minimum_required(VERSION 3.15)
+
 # Avoid multi inclusion of this file
 if(CU_SIGN_BINARY_INCLUDED)
 	return()

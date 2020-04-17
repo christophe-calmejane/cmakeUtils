@@ -1,11 +1,17 @@
 ###############################################################################
 ### CMake script handling deployment of the runtime dependencies of a binary
 
+cmake_minimum_required(VERSION 3.15)
+
 # Avoid multi inclusion of this file
 if(CU_DEPLOY_BINARY_DEPENDENCIES_INCLUDED)
 	return()
 endif()
 set(CU_DEPLOY_BINARY_DEPENDENCIES_INCLUDED true)
+
+# Some global variables
+set(CU_DEPLOY_BINARY_DEPENDENCIES_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
+include("${CU_DEPLOY_BINARY_DEPENDENCIES_FOLDER}/IsNewerThan.cmake")
 
 # Due to a bug in some CMake versions, force CMP0057
 cmake_policy(PUSH)
@@ -22,9 +28,9 @@ function(cu_private_get_binary_dependencies BINARY_PATH LIBRARY_DEPENDENCIES_OUT
 		set(DUMPBIN_COMMAND "dumpbin.exe")
 
 		# Get binary dependencies
-		execute_process(COMMAND ${DUMPBIN_COMMAND} /DEPENDENTS ${BINARY_NAME} WORKING_DIRECTORY ${BINARY_FOLDER} RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
+		execute_process(COMMAND ${DUMPBIN_COMMAND} /DEPENDENTS "${BINARY_NAME}" WORKING_DIRECTORY "${BINARY_FOLDER}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
 		if(NOT ${CMD_RESULT} EQUAL 0)
-			message(FATAL_ERROR "Failed to get binary dependencies: ${CMD_RESULT}")
+			message(FATAL_ERROR "Failed to get binary dependencies:\n## Command line => ${DUMPBIN_COMMAND} /DEPENDENTS \"${BINARY_NAME}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
 		endif()
 
 		# Match with the leading 4 spaces so we ignore "Dump of file xxx.dll" that is outputed by dumpbin
@@ -40,9 +46,9 @@ function(cu_private_get_binary_dependencies BINARY_PATH LIBRARY_DEPENDENCIES_OUT
 		set(OTOOL_COMMAND "otool")
 
 		# Get binary dependencies
-		execute_process(COMMAND ${OTOOL_COMMAND} -L ${BINARY_NAME} WORKING_DIRECTORY ${BINARY_FOLDER} RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
+		execute_process(COMMAND ${OTOOL_COMMAND} -L "${BINARY_NAME}" WORKING_DIRECTORY "${BINARY_FOLDER}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
 		if(NOT ${CMD_RESULT} EQUAL 0)
-			message(FATAL_ERROR "Failed to get binary dependencies: ${CMD_RESULT}")
+			message(FATAL_ERROR "Failed to get binary dependencies:\n## Command line => ${OTOOL_COMMAND} -L \"${BINARY_NAME}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
 		endif()
 
 		# Since CMake regex does not support lookaround and capture groups do not return all results in a MATCHALL, we split the output result in lines, then match a single expression for each line
@@ -161,17 +167,21 @@ function(cu_deploy_runtime_binary)
 	cu_private_get_binary_dependencies_to_copy("${DEPLOY_BINARY_PATH}" "${DEPLOY_TARGET_DIR}")
 
 	foreach(DEP ${BINARY_DEPENDENCIES})
-		# Copy the file
-		message(" - Copying transitive dependency ${DEP} => ${DEPLOY_TARGET_DIR}")
-		file(COPY "${DEP}" DESTINATION "${DEPLOY_TARGET_DIR}" FOLLOW_SYMLINK_CHAIN)
-
-		# Build copied file full path
+		# Build destination file full path
 		get_filename_component(BINARY_NAME ${DEP} NAME)
-		set(COPIED_FILE "${DEPLOY_TARGET_DIR}/${BINARY_NAME}")
+		set(DEST_FILE_PATH "${DEPLOY_TARGET_DIR}/${BINARY_NAME}")
 
-		# Add to the list of copied files
-		if(DEPLOY_COPIED_FILES_VAR)
-			list(APPEND ${DEPLOY_COPIED_FILES_VAR} "${COPIED_FILE}")
+		# Check if we need to copy the file
+		cu_is_newer_than("${DEP}" "${DEST_FILE_PATH}" IS_NEWER_THAN_RESULT)
+		if(${IS_NEWER_THAN_RESULT})
+			# Copy the file
+			message(" - Copying transitive dependency ${DEP} => ${DEPLOY_TARGET_DIR}")
+			file(COPY "${DEP}" DESTINATION "${DEPLOY_TARGET_DIR}" FOLLOW_SYMLINK_CHAIN)
+
+			# Add to the list of copied files
+			if(DEPLOY_COPIED_FILES_VAR)
+				list(APPEND ${DEPLOY_COPIED_FILES_VAR} "${DEST_FILE_PATH}")
+			endif()
 		endif()
 	endforeach()
 

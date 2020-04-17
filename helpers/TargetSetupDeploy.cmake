@@ -1,12 +1,15 @@
 ###############################################################################
 ### CMake script handling deployment of the runtime dependencies of a target
 
+cmake_minimum_required(VERSION 3.15)
+
 # Avoid multi inclusion of this file
 if(CU_TARGET_SETUP_DEPLOY_INCLUDED)
 	return()
 endif()
 set(CU_TARGET_SETUP_DEPLOY_INCLUDED true)
 
+# Some global variables
 set(CU_TARGET_SETUP_DEPLOY_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 
 ##################################
@@ -122,6 +125,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	# Init code for both easy-debug and install scripts
 	string(CONCAT INIT_CODE
+		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/IsNewerThan.cmake\")\n"
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/DeployBinaryDependencies.cmake\")\n"
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/SignBinary.cmake\")\n"
 		"set(BINARIES_TO_SIGN)\n"
@@ -144,45 +148,46 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		list(REMOVE_DUPLICATES _LIBRARY_DEPENDENCIES_OUTPUT)
 		# Process each runtime dependency
 		foreach(_LIBRARY ${_LIBRARY_DEPENDENCIES_OUTPUT})
-			# If install deployment is requested
-			if(DEPLOY_INSTALL)
-				if(CMAKE_HOST_WIN32)
-					# Classic install
-					install(
-						FILES $<TARGET_FILE:${_LIBRARY}>
-						DESTINATION bin
-					)
-					# Runtime dependencies install
-					install(CODE
-						"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_INST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")"
-					)
-				# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
-				elseif(NOT _IS_BUNDLE)
-					# Classic install
-					install(
-						FILES $<TARGET_FILE:${_LIBRARY}> $<TARGET_SONAME_FILE:${_LIBRARY}>
-						DESTINATION lib
-					)
-					# Runtime dependencies install
-					install(CODE
-						"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_INST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")"
-					)
-				endif()
-			endif()
-			# Copy dynamic library to the output build folder for easy-debug
-			string(APPEND DEPLOY_SCRIPT_CONTENT
-				"message(\" - Copying target file $<TARGET_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-				"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-				"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_DEST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")\n"
+			# Copy dynamic library to the runtime folder (but only if file is newer, which includes if they are identical) based on RUNTIME_FOLDER variable that is different for easy-debug and install rules
+			string(CONCAT COPY_TARGET_FILE_CODE
+				"cu_is_newer_than(\"$<TARGET_FILE:${_LIBRARY}>\" \"\${RUNTIME_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\" IS_NEWER_THAN_RESULT)\n"
+				"if(\${IS_NEWER_THAN_RESULT})\n"
+				"\tmessage(\" - Copying target file $<TARGET_FILE:${_LIBRARY}> => \${RUNTIME_FOLDER}\")\n"
+				"\tfile(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"\${RUNTIME_FOLDER}\")\n"
+				"\tlist(APPEND BINARIES_TO_SIGN \"\${RUNTIME_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")\n"
+				"endif()\n"
 			)
 			# Don't forget to copy the SONAME symlink if it exists (for platforms supporting it), no need to sign it as it's a symlink
 			if(NOT CMAKE_HOST_WIN32)
-				string(APPEND DEPLOY_SCRIPT_CONTENT
+				string(CONCAT COPY_TARGET_FILE_CODE
+					${COPY_TARGET_FILE_CODE}
 					"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
-					"\tmessage(\" - Copying target file SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-					"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+					"\tcu_is_newer_than(\"$<TARGET_SONAME_FILE:${_LIBRARY}>\" \"\${RUNTIME_FOLDER}/$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\" IS_NEWER_THAN_RESULT)\n"
+					"\tif(\${IS_NEWER_THAN_RESULT})\n"
+					"\t\tmessage(\" - Copying target file SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => \${RUNTIME_FOLDER}\")\n"
+					"\t\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"\${RUNTIME_FOLDER}\")\n"
+					"\tendif()\n"
 					"endif()\n"
 				)
+			endif()
+
+			string(APPEND DEPLOY_SCRIPT_CONTENT
+				"set(RUNTIME_FOLDER \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+				"${COPY_TARGET_FILE_CODE}"
+			)
+
+			# If install deployment is requested
+			if(DEPLOY_INSTALL)
+				# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
+				if(CMAKE_HOST_WIN32 OR NOT _IS_BUNDLE)
+					# WARNING: install(CODE) does not support multiple parameters
+					install(CODE
+						"set(RUNTIME_FOLDER \"${RUNTIME_LIBRARIES_INST_FOLDER}\")\n"
+					)
+					install(CODE
+						"${COPY_TARGET_FILE_CODE}"
+					)
+				endif()
 			endif()
 		endforeach()
 	endif()
