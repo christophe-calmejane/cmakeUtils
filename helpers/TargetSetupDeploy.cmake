@@ -169,16 +169,21 @@ function(cu_deploy_runtime_target TARGET_NAME)
 					)
 				endif()
 			endif()
-			# Copy dynamic library to the output build folder for easy-debug (and don't forget to copy the SONAME symlink if it exists, no need to sign it as it's a symlink)
+			# Copy dynamic library to the output build folder for easy-debug
 			string(APPEND DEPLOY_SCRIPT_CONTENT
 				"message(\" - Copying target file $<TARGET_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
 				"file(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
 				"list(APPEND BINARIES_TO_SIGN \"${RUNTIME_LIBRARIES_DEST_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")\n"
-				"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
-				"\tmessage(\" - Copying target file SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-				"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
-				"endif()\n"
 			)
+			# Don't forget to copy the SONAME symlink if it exists (for platforms supporting it), no need to sign it as it's a symlink
+			if(NOT CMAKE_HOST_WIN32)
+				string(APPEND DEPLOY_SCRIPT_CONTENT
+					"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
+					"\tmessage(\" - Copying target file SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => ${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+					"\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
+					"endif()\n"
+				)
+			endif()
 		endforeach()
 	endif()
 
