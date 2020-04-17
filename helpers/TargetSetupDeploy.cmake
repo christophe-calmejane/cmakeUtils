@@ -98,17 +98,26 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>")
 		# And install in the bin folder
 		set(RUNTIME_LIBRARIES_INST_FOLDER "${INSTALL_BASE_FOLDER}/bin")
-	else()
-		if(APPLE AND _IS_BUNDLE)
+	elseif(CMAKE_HOST_APPLE)
+		# TODO: Get rpath from TARGET_FILE using https://github.com/microsoft/vcpkg/issues/10665#issuecomment-608389875 to correctly set RUNTIME_LIBRARIES_DEST_FOLDER for both bundle and non-bundle
+		if(_IS_BUNDLE)
 			# For macOS bundle, we want to copy the file directly inside the bundle
 			set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Frameworks/")
-			# We don't want to install, as we'll copy the whole bundle
 		else()
-			# For macOS non-bundle and linux, we copy in the lib folder
+			# For macOS non-bundle, we copy in the lib folder
 			set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib")
+		endif()
+		# For macOS bundle, We don't want to install as we'll copy the whole bundle
+		if(NOT _IS_BUNDLE)
 			# And install in the lib folder
 			set(RUNTIME_LIBRARIES_INST_FOLDER "${INSTALL_BASE_FOLDER}/lib")
 		endif()
+	else()
+		# For linux, we copy in the lib folder
+		# TODO: Get rpath from the binary
+		set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib")
+		# And install in the lib folder
+		set(RUNTIME_LIBRARIES_INST_FOLDER "${INSTALL_BASE_FOLDER}/lib")
 	endif()
 
 	# Init code for both easy-debug and install scripts
@@ -234,10 +243,13 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	)
 
 	if(DEPLOY_INSTALL)
-		# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
-		install(CODE
-			 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_INST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
-		)
+		# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
+		if(NOT _IS_BUNDLE)
+			# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
+			install(CODE
+				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_INST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
+			)
+		endif()
 	endif()
 
 	# Done for deployment
