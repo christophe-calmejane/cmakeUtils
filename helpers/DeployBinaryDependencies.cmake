@@ -1,8 +1,6 @@
 ###############################################################################
 ### CMake script handling deployment of the runtime dependencies of a binary
 
-cmake_minimum_required(VERSION 3.15)
-
 # Avoid multi inclusion of this file
 if(CU_DEPLOY_BINARY_DEPENDENCIES_INCLUDED)
 	return()
@@ -136,6 +134,9 @@ endfunction()
 # Optional parameters:
 #  - "COPIED_FILES_VAR <list of copied files>" => variable receiving the list of copied files (files are appended to this list variable, if it's specified)
 function(cu_deploy_runtime_binary)
+	# Check for cmake minimum version
+	cmake_minimum_required(VERSION 3.15) # FOLLOW_SYMLINK_CHAIN added in cmake 3.15
+
 	# Parse arguments
 	cmake_parse_arguments(DEPLOY "" "BINARY_PATH;INSTALLED_DIR;TARGET_DIR;COPIED_FILES_VAR" "" ${ARGN})
 

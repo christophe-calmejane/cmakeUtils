@@ -2,8 +2,6 @@
 ### CMake script comparing files returning if the first is newer than the second one
 ### Note: the if:IS_NEWER_THAN command returns TRUE is both files are identical, which might not always be desirable
 
-cmake_minimum_required(VERSION 3.15)
-
 # Avoid multi inclusion of this file
 if(CU_IS_NEWER_THAN_INCLUDED)
 	return()
@@ -15,6 +13,9 @@ set(CU_IS_NEWER_THAN_INCLUDED true)
 # Returns TRUE if both files exist and if the first one is stricly newer than the second one
 # If any of the files doesn't exist, TRUE is also returned.
 function(cu_is_newer_than FIRST_FILE SECOND_FILE RESULT_VAR)
+	# Check for cmake minimum version
+	cmake_minimum_required(VERSION 3.14)
+
 	# First, check if both files are identical
 	execute_process(COMMAND "${CMAKE_COMMAND}" -E compare_files "${FIRST_FILE}" "${SECOND_FILE}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
 

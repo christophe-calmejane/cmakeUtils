@@ -1,8 +1,6 @@
 ###############################################################################
 ### CMake script handling deployment of the runtime dependencies of a target
 
-cmake_minimum_required(VERSION 3.15)
-
 # Avoid multi inclusion of this file
 if(CU_TARGET_SETUP_DEPLOY_INCLUDED)
 	return()
@@ -74,6 +72,9 @@ endfunction()
 #  - "CODESIGN_OPTIONS <macOS codesign options>..." => list of options to pass to macOS codesign utility (signing will be done on all runtime dependencies if this is specified)
 #  - "CODESIGN_IDENTITY <signing identity>" => code signing identity to be used by macOS codesign utility (autodetect will be used if not specified)
 function(cu_deploy_runtime_target TARGET_NAME)
+	# Check for cmake minimum version
+	cmake_minimum_required(VERSION 3.14)
+
 	set(VISITED_DEPENDENCIES)
 	cu_private_target_list_link_libraries(${TARGET_NAME} _LIBRARY_DEPENDENCIES_OUTPUT _QT_DEPENDENCIES_OUTPUT)
 

@@ -1,8 +1,6 @@
 ###############################################################################
 ### CMake script handling code signing of the binary
 
-cmake_minimum_required(VERSION 3.15)
-
 # Avoid multi inclusion of this file
 if(CU_SIGN_BINARY_INCLUDED)
 	return()
@@ -19,6 +17,9 @@ set(CU_SIGN_BINARY_INCLUDED true)
 #  - "CODESIGN_OPTIONS <macOS codesign options>..." => list of options to pass to macOS codesign utility (signing will be done on all runtime dependencies if this is specified)
 #  - "CODESIGN_IDENTITY <signing identity>" => code signing identity to be used by macOS codesign utility (autodetect will be used if not specified)
 function(cu_sign_binary)
+	# Check for cmake minimum version
+	cmake_minimum_required(VERSION 3.14)
+
 	# Parse arguments
 	cmake_parse_arguments(SIGN "" "BINARY_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
 
