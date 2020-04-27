@@ -1,7 +1,7 @@
 ###############################################################################
 ### CMake script handling deployment of the runtime dependencies of a binary
 
-# Avoid multi inclusion of this file
+# Avoid multi inclusion of this file (cannot use include_guard as multiple copies of this file are included from multiple places)
 if(CU_DEPLOY_BINARY_DEPENDENCIES_INCLUDED)
 	return()
 endif()
@@ -103,8 +103,8 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 			# message(STATUS "Process already deployed dependency ${DEPENDENCY}...")
 
 		# Then check if we can find this binary in vcpkg installed directory
-		elseif(EXISTS "${DEPLOY_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
-			set(DEPENDENCY_PATH "${DEPLOY_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
+		elseif(EXISTS "${CUDRB_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
+			set(DEPENDENCY_PATH "${CUDRB_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
 			# Add to the list of files to copy
 			if(NOT "${DEPENDENCY_PATH}" IN_LIST BINARY_DEPENDENCIES)
 				list(APPEND BINARY_DEPENDENCIES "${DEPENDENCY_PATH}")
@@ -128,7 +128,7 @@ endfunction()
 ########
 # Deploy all runtime dependencies a binary depends on
 # Mandatory parameters:
-#  - "BINARY_PATH <binary path>" => Path of the binary to sign
+#  - "BINARY_PATH <binary path>" => Path of the binary to deploy
 #  - "INSTALLED_DIR <vcpkg installed directory>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 #  - "TARGET_DIR <target copy directory>" => directory where to copy runtime dependencies
 # Optional parameters:
@@ -138,56 +138,56 @@ function(cu_deploy_runtime_binary)
 	cmake_minimum_required(VERSION 3.15) # FOLLOW_SYMLINK_CHAIN added in cmake 3.15
 
 	# Parse arguments
-	cmake_parse_arguments(DEPLOY "" "BINARY_PATH;INSTALLED_DIR;TARGET_DIR;COPIED_FILES_VAR" "" ${ARGN})
+	cmake_parse_arguments(CUDRB "" "BINARY_PATH;INSTALLED_DIR;TARGET_DIR;COPIED_FILES_VAR" "" ${ARGN})
 
 	# Check required parameters validity
-	if(NOT DEPLOY_BINARY_PATH)
+	if(NOT CUDRB_BINARY_PATH)
 		message(FATAL_ERROR "BINARY_PATH required")
 	endif()
-	if(NOT EXISTS "${DEPLOY_BINARY_PATH}")
-		message(FATAL_ERROR "Specified binary does not exist: ${DEPLOY_BINARY_PATH}")
+	if(NOT EXISTS "${CUDRB_BINARY_PATH}")
+		message(FATAL_ERROR "Specified binary does not exist: ${CUDRB_BINARY_PATH}")
 	endif()
 
-	if(NOT DEPLOY_INSTALLED_DIR)
+	if(NOT CUDRB_INSTALLED_DIR)
 		message(FATAL_ERROR "INSTALLED_DIR required")
 	endif()
-	if(NOT EXISTS "${DEPLOY_INSTALLED_DIR}")
-		message(FATAL_ERROR "Specified vcpkg installed directory does not exist: ${DEPLOY_INSTALLED_DIR}")
+	if(NOT EXISTS "${CUDRB_INSTALLED_DIR}")
+		message(FATAL_ERROR "Specified vcpkg installed directory does not exist: ${CUDRB_INSTALLED_DIR}")
 	endif()
 
-	if(NOT DEPLOY_TARGET_DIR)
+	if(NOT CUDRB_TARGET_DIR)
 		message(FATAL_ERROR "TARGET_DIR required")
 	endif()
-	if(NOT EXISTS "${DEPLOY_TARGET_DIR}")
-		message(FATAL_ERROR "Specified target directory does not exist: ${DEPLOY_TARGET_DIR}")
+	if(NOT EXISTS "${CUDRB_TARGET_DIR}")
+		message(FATAL_ERROR "Specified target directory does not exist: ${CUDRB_TARGET_DIR}")
 	endif()
 
 	# Recursively get dependencies
 	set(VISITED_DEPENDENCIES)
 	set(BINARY_DEPENDENCIES)
-	cu_private_get_binary_dependencies_to_copy("${DEPLOY_BINARY_PATH}" "${DEPLOY_TARGET_DIR}")
+	cu_private_get_binary_dependencies_to_copy("${CUDRB_BINARY_PATH}" "${CUDRB_TARGET_DIR}")
 
 	foreach(DEP ${BINARY_DEPENDENCIES})
 		# Build destination file full path
 		get_filename_component(BINARY_NAME ${DEP} NAME)
-		set(DEST_FILE_PATH "${DEPLOY_TARGET_DIR}/${BINARY_NAME}")
+		set(DEST_FILE_PATH "${CUDRB_TARGET_DIR}/${BINARY_NAME}")
 
 		# Check if we need to copy the file
 		cu_is_newer_than("${DEP}" "${DEST_FILE_PATH}" IS_NEWER_THAN_RESULT)
 		if(${IS_NEWER_THAN_RESULT})
 			# Copy the file
-			message(" - Copying transitive dependency ${DEP} => ${DEPLOY_TARGET_DIR}")
-			file(COPY "${DEP}" DESTINATION "${DEPLOY_TARGET_DIR}" FOLLOW_SYMLINK_CHAIN)
+			message(" - Copying transitive dependency ${DEP} => ${CUDRB_TARGET_DIR}")
+			file(COPY "${DEP}" DESTINATION "${CUDRB_TARGET_DIR}" FOLLOW_SYMLINK_CHAIN)
 
 			# Add to the list of copied files
-			if(DEPLOY_COPIED_FILES_VAR)
-				list(APPEND ${DEPLOY_COPIED_FILES_VAR} "${DEST_FILE_PATH}")
+			if(CUDRB_COPIED_FILES_VAR)
+				list(APPEND ${CUDRB_COPIED_FILES_VAR} "${DEST_FILE_PATH}")
 			endif()
 		endif()
 	endforeach()
 
-	if(DEPLOY_COPIED_FILES_VAR)
-		set(${DEPLOY_COPIED_FILES_VAR} ${${DEPLOY_COPIED_FILES_VAR}} PARENT_SCOPE)
+	if(CUDRB_COPIED_FILES_VAR)
+		set(${CUDRB_COPIED_FILES_VAR} ${${CUDRB_COPIED_FILES_VAR}} PARENT_SCOPE)
 	endif()
 endfunction()
 

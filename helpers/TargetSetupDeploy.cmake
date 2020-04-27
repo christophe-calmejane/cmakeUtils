@@ -1,7 +1,7 @@
 ###############################################################################
 ### CMake script handling deployment of the runtime dependencies of a target
 
-# Avoid multi inclusion of this file
+# Avoid multi inclusion of this file (cannot use include_guard as multiple copies of this file are included from multiple places)
 if(CU_TARGET_SETUP_DEPLOY_INCLUDED)
 	return()
 endif()
@@ -66,6 +66,7 @@ endfunction()
 #  - "VCPKG_INSTALLED_PATH <vcpkg installed folder>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 # Optional parameters:
 #  - "INSTALL" => flag instructing the script to also install-deploy the runtime dependencies
+#  - "SIGN" => flag instructing the script to code sign the runtime dependencies
 #  - "QML_DIR <path>" => override default QML_DIR folder
 #  - "SIGNTOOL_OPTIONS <windows signtool options>..." => list of options to pass to windows signtool utility (signing will be done on all runtime dependencies if this is specified)
 #  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
@@ -86,9 +87,9 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	get_target_property(_IS_BUNDLE ${TARGET_NAME} MACOSX_BUNDLE)
 
 	# We generate a cmake script that will contain all the commands
-	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/cu_deploy_runtime_${TARGET_NAME}.cmake)
+	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${TARGET_NAME}.cmake)
 
-	cmake_parse_arguments(DEPLOY "INSTALL" "QML_DIR;VCPKG_INSTALLED_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
+	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;VCPKG_INSTALLED_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT DEPLOY_VCPKG_INSTALLED_PATH)
@@ -269,7 +270,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	)
 
 	# If code signing is requested
-	if(DEPLOY_SIGNTOOL_OPTIONS OR DEPLOY_CODESIGN_OPTIONS)
+	if(DEPLOY_SIGN)
 		# Expand options lists
 		string(REPLACE ";" " " SIGNTOOL_OPTIONS "${DEPLOY_SIGNTOOL_OPTIONS}")
 		string(REPLACE ";" " " SIGNTOOL_AGAIN_OPTIONS "${DEPLOY_SIGNTOOL_AGAIN_OPTIONS}")

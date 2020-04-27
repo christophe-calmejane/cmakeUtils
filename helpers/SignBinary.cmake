@@ -1,7 +1,7 @@
 ###############################################################################
 ### CMake script handling code signing of the binary
 
-# Avoid multi inclusion of this file
+# Avoid multi inclusion of this file (cannot use include_guard as multiple copies of this file are included from multiple places)
 if(CU_SIGN_BINARY_INCLUDED)
 	return()
 endif()
@@ -21,42 +21,42 @@ function(cu_sign_binary)
 	cmake_minimum_required(VERSION 3.14)
 
 	# Parse arguments
-	cmake_parse_arguments(SIGN "" "BINARY_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
+	cmake_parse_arguments(CUSB "" "BINARY_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
 
 	# Check required parameters validity
-	if(NOT SIGN_BINARY_PATH)
+	if(NOT CUSB_BINARY_PATH)
 		message(FATAL_ERROR "BINARY_PATH required")
 	endif()
-	if(NOT EXISTS "${SIGN_BINARY_PATH}")
-		message(FATAL_ERROR "Specified binary does not exist: ${SIGN_BINARY_PATH}")
+	if(NOT EXISTS "${CUSB_BINARY_PATH}")
+		message(FATAL_ERROR "Specified binary does not exist: ${CUSB_BINARY_PATH}")
 	endif()
 
-	message(" - Signing ${SIGN_BINARY_PATH}")
+	message(" - Signing ${CUSB_BINARY_PATH}")
 	if(CMAKE_HOST_WIN32)
-		execute_process(COMMAND signtool sign ${SIGN_SIGNTOOL_OPTIONS} "${SIGN_BINARY_PATH}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
+		execute_process(COMMAND signtool sign ${CUSB_SIGNTOOL_OPTIONS} "${CUSB_BINARY_PATH}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
 		if(NOT ${CMD_RESULT} EQUAL 0)
 			# Expand options lists
-			string(REPLACE ";" " " SIGNTOOL_OPTIONS "${SIGN_SIGNTOOL_OPTIONS}")
-			message(FATAL_ERROR "Failed to sign:\n## Command line => signtool sign ${SIGNTOOL_OPTIONS} \"${SIGN_BINARY_PATH}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
+			string(REPLACE ";" " " SIGNTOOL_OPTIONS "${CUSB_SIGNTOOL_OPTIONS}")
+			message(FATAL_ERROR "Failed to sign:\n## Command line => signtool sign ${SIGNTOOL_OPTIONS} \"${CUSB_BINARY_PATH}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
 		endif()
-		if(SIGN_SIGNTOOL_AGAIN_OPTIONS)
-			execute_process(COMMAND signtool sign ${SIGN_SIGNTOOL_AGAIN_OPTIONS} "${SIGN_BINARY_PATH}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
+		if(CUSB_SIGNTOOL_AGAIN_OPTIONS)
+			execute_process(COMMAND signtool sign ${CUSB_SIGNTOOL_AGAIN_OPTIONS} "${CUSB_BINARY_PATH}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
 			if(NOT ${CMD_RESULT} EQUAL 0)
 				# Expand options lists
-				string(REPLACE ";" " " SIGNTOOL_AGAIN_OPTIONS "${SIGN_SIGNTOOL_AGAIN_OPTIONS}")
-				message(FATAL_ERROR "Failed to sign:\n## Command line => signtool sign ${SIGNTOOL_AGAIN_OPTIONS} \"${SIGN_BINARY_PATH}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
+				string(REPLACE ";" " " SIGNTOOL_AGAIN_OPTIONS "${CUSB_SIGNTOOL_AGAIN_OPTIONS}")
+				message(FATAL_ERROR "Failed to sign:\n## Command line => signtool sign ${SIGNTOOL_AGAIN_OPTIONS} \"${CUSB_BINARY_PATH}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
 			endif()
 		endif()
 	elseif(CMAKE_HOST_APPLE)
 		set(IDENTITY "-")
-		if(SIGN_CODESIGN_IDENTITY)
-			set(IDENTITY "${SIGN_CODESIGN_IDENTITY}")
+		if(CUSB_CODESIGN_IDENTITY)
+			set(IDENTITY "${CUSB_CODESIGN_IDENTITY}")
 		endif()
-		execute_process(COMMAND codesign -s "${IDENTITY}" ${SIGN_CODESIGN_OPTIONS} "${SIGN_BINARY_PATH}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
+		execute_process(COMMAND codesign -s "${IDENTITY}" ${CUSB_CODESIGN_OPTIONS} "${CUSB_BINARY_PATH}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
 		if(NOT ${CMD_RESULT} EQUAL 0)
 			# Expand options lists
-			string(REPLACE ";" " " CODESIGN_OPTIONS "${SIGN_CODESIGN_OPTIONS}")
-			message(FATAL_ERROR "Failed to sign:\n## Command line => codesign -s \"${IDENTITY}\" ${CODESIGN_OPTIONS} \"${SIGN_BINARY_PATH}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
+			string(REPLACE ";" " " CODESIGN_OPTIONS "${CUSB_CODESIGN_OPTIONS}")
+			message(FATAL_ERROR "Failed to sign:\n## Command line => codesign -s \"${IDENTITY}\" ${CODESIGN_OPTIONS} \"${CUSB_BINARY_PATH}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
 		endif()
 	endif()
 endfunction()

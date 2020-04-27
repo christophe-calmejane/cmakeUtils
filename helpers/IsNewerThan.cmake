@@ -2,7 +2,7 @@
 ### CMake script comparing files returning if the first is newer than the second one
 ### Note: the if:IS_NEWER_THAN command returns TRUE is both files are identical, which might not always be desirable
 
-# Avoid multi inclusion of this file
+# Avoid multi inclusion of this file (cannot use include_guard as multiple copies of this file are included from multiple places)
 if(CU_IS_NEWER_THAN_INCLUDED)
 	return()
 endif()
