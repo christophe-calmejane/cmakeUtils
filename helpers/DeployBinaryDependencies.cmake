@@ -129,9 +129,9 @@ endfunction()
 # Deploy all runtime dependencies a binary depends on
 # Mandatory parameters:
 #  - "BINARY_PATH <binary path>" => Path of the binary to deploy
-#  - "INSTALLED_DIR <vcpkg installed directory>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 #  - "TARGET_DIR <target copy directory>" => directory where to copy runtime dependencies
 # Optional parameters:
+#  - "INSTALLED_DIR <vcpkg installed directory>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 #  - "COPIED_FILES_VAR <list of copied files>" => variable receiving the list of copied files (files are appended to this list variable, if it's specified)
 function(cu_deploy_runtime_binary)
 	# Check for cmake minimum version
@@ -148,10 +148,7 @@ function(cu_deploy_runtime_binary)
 		message(FATAL_ERROR "Specified binary does not exist: ${CUDRB_BINARY_PATH}")
 	endif()
 
-	if(NOT CUDRB_INSTALLED_DIR)
-		message(FATAL_ERROR "INSTALLED_DIR required")
-	endif()
-	if(NOT EXISTS "${CUDRB_INSTALLED_DIR}")
+	if(CUDRB_INSTALLED_DIR AND NOT EXISTS "${CUDRB_INSTALLED_DIR}")
 		message(FATAL_ERROR "Specified vcpkg installed directory does not exist: ${CUDRB_INSTALLED_DIR}")
 	endif()
 

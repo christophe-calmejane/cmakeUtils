@@ -62,11 +62,10 @@ endfunction()
 
 ##################################
 # Deploy all runtime dependencies the specified target depends on
-# Mandatory parameters:
-#  - "VCPKG_INSTALLED_PATH <vcpkg installed folder>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 # Optional parameters:
 #  - "INSTALL" => flag instructing the script to also install-deploy the runtime dependencies
 #  - "SIGN" => flag instructing the script to code sign the runtime dependencies
+#  - "VCPKG_INSTALLED_PATH <vcpkg installed folder>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 #  - "QML_DIR <path>" => override default QML_DIR folder
 #  - "SIGNTOOL_OPTIONS <windows signtool options>..." => list of options to pass to windows signtool utility (signing will be done on all runtime dependencies if this is specified)
 #  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
@@ -90,11 +89,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${TARGET_NAME}.cmake)
 
 	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;VCPKG_INSTALLED_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
-
-	# Check required parameters validity
-	if(NOT DEPLOY_VCPKG_INSTALLED_PATH)
-		message(FATAL_ERROR "VCPKG_INSTALLED_PATH required")
-	endif()
 
 	# Compute runtime libraries destination folder
 	get_filename_component(INSTALL_BASE_FOLDER "${CMAKE_INSTALL_PREFIX}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
@@ -249,9 +243,13 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		endif()
 	endif()
 
+	if(DEPLOY_VCPKG_INSTALLED_PATH)
+		set(VCPKG_FOLDER_OPTIONS "INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\"")
+	endif()
+
 	# Call deploy non-qt runtime (to handle transitive dependencies) for easy-debug
 	string(APPEND DEPLOY_SCRIPT_CONTENT
-		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_DEST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
+		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"${RUNTIME_LIBRARIES_DEST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
 	)
 
 	if(DEPLOY_INSTALL)
@@ -259,7 +257,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		if(NOT _IS_BUNDLE)
 			# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
 			install(CODE
-				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\" TARGET_DIR \"${RUNTIME_LIBRARIES_INST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
+				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"${RUNTIME_LIBRARIES_INST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
 			)
 		endif()
 	endif()
