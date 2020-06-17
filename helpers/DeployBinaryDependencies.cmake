@@ -32,7 +32,7 @@ function(cu_private_get_binary_dependencies BINARY_PATH LIBRARY_DEPENDENCIES_OUT
 		endif()
 
 		# Match with the leading 4 spaces so we ignore "Dump of file xxx.dll" that is outputed by dumpbin
-		string(REGEX MATCHALL "    [^ .]+\\.[dD][lL][lL]" DEPENDENCIES_LIST ${CMD_OUTPUT})
+		string(REGEX MATCHALL "    [^ .]+\\.[dD][lL][lL]" DEPENDENCIES_LIST "${CMD_OUTPUT}")
 		foreach(DEPENDENCY ${DEPENDENCIES_LIST})
 			# Remove the leading 4 spaces that we matched
 			string(REGEX REPLACE "^    " "" DEPENDENCY "${DEPENDENCY}")
@@ -50,9 +50,9 @@ function(cu_private_get_binary_dependencies BINARY_PATH LIBRARY_DEPENDENCIES_OUT
 		endif()
 
 		# Since CMake regex does not support lookaround and capture groups do not return all results in a MATCHALL, we split the output result in lines, then match a single expression for each line
-		string(REGEX MATCHALL "[^\n]+" SPLIT_LINES ${CMD_OUTPUT})
+		string(REGEX MATCHALL "[^\n]+" SPLIT_LINES "${CMD_OUTPUT}")
 		foreach(LINE ${SPLIT_LINES})
-			string(REGEX MATCH "@rpath/([^\n]+\\.dylib)" MATCH_RESULT ${LINE})
+			string(REGEX MATCH "@rpath/([^\n]+\\.dylib)" MATCH_RESULT "${LINE}")
 			if(CMAKE_MATCH_COUNT EQUAL 1)
 				# Append to list
 				list(APPEND ${LIBRARY_DEPENDENCIES_OUTPUT} "${CMAKE_MATCH_1}")
@@ -60,7 +60,24 @@ function(cu_private_get_binary_dependencies BINARY_PATH LIBRARY_DEPENDENCIES_OUT
 		endforeach()
 
 	else()
-		message(FATAL_ERROR "TODO")
+		set(READELF_COMMAND "readelf")
+
+		# Get binary dependencies
+		execute_process(COMMAND ${READELF_COMMAND} -d "${BINARY_NAME}" WORKING_DIRECTORY "${BINARY_FOLDER}" RESULT_VARIABLE CMD_RESULT OUTPUT_VARIABLE CMD_OUTPUT ERROR_VARIABLE CMD_OUTPUT)
+		if(NOT ${CMD_RESULT} EQUAL 0)
+			message(FATAL_ERROR "Failed to get binary dependencies:\n## Command line => ${READELF_COMMAND} -d \"${BINARY_NAME}\"\n## Error Code => ${CMD_RESULT}\n## Output => ${CMD_OUTPUT}")
+		endif()
+
+		# Since CMake regex does not support lookaround and capture groups do not return all results in a MATCHALL, we split the output result in lines, then match a single expression for each line
+		string(REGEX MATCHALL "[^\n]+" SPLIT_LINES "${CMD_OUTPUT}")
+		foreach(LINE ${SPLIT_LINES})
+			string(REGEX MATCH "\\(NEEDED\\)[^[]+\\[([^]]+)\\]" MATCH_RESULT "${LINE}")
+			if(CMAKE_MATCH_COUNT EQUAL 1)
+				# Append to list
+				list(APPEND ${LIBRARY_DEPENDENCIES_OUTPUT} "${CMAKE_MATCH_1}")
+			endif()
+		endforeach()
+
 	endif()
 
 	set(${LIBRARY_DEPENDENCIES_OUTPUT} ${${LIBRARY_DEPENDENCIES_OUTPUT}} PARENT_SCOPE)
@@ -93,7 +110,7 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 	elseif(CMAKE_HOST_APPLE)
 		set(VCPKG_INSTALLED_RUNTIME_FOLDER "lib")
 	else()
-		message(FATAL_ERROR "TODO")
+		set(VCPKG_INSTALLED_RUNTIME_FOLDER "lib")
 	endif()
 
 	foreach(DEPENDENCY ${DEPENDENCIES_LIST})
