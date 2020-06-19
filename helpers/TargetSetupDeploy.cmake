@@ -67,6 +67,7 @@ endfunction()
 #  - "SIGN" => flag instructing the script to code sign the runtime dependencies
 #  - "VCPKG_INSTALLED_PATH <vcpkg installed folder>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 #  - "QML_DIR <path>" => override default QML_DIR folder
+#  - "INSTALL_DESTINATION <relative path>" => Relative path that was given to the DESTINATION option of the install() rule for TARGET_NAME (defaults to 'bin')
 #  - "SIGNTOOL_OPTIONS <windows signtool options>..." => list of options to pass to windows signtool utility (signing will be done on all runtime dependencies if this is specified)
 #  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
 #  - "CODESIGN_OPTIONS <macOS codesign options>..." => list of options to pass to macOS codesign utility (signing will be done on all runtime dependencies if this is specified)
@@ -88,42 +89,21 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# We generate a cmake script that will contain all the commands
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${TARGET_NAME}.cmake)
 
-	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;VCPKG_INSTALLED_PATH;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
+	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "VCPKG_INSTALLED_PATH;QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
 
-	# Compute runtime libraries destination folder
-	get_filename_component(INSTALL_BASE_FOLDER "${CMAKE_INSTALL_PREFIX}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
-	if(CMAKE_HOST_WIN32)
-		# For windows, we copy in the same folder than the binary
-		set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>")
-		# And install in the bin folder
-		set(RUNTIME_LIBRARIES_INST_FOLDER "${INSTALL_BASE_FOLDER}/bin")
-	elseif(CMAKE_HOST_APPLE)
-		# TODO: Get rpath from TARGET_FILE using https://github.com/microsoft/vcpkg/issues/10665#issuecomment-608389875 to correctly set RUNTIME_LIBRARIES_DEST_FOLDER for both bundle and non-bundle
-		if(_IS_BUNDLE)
-			# For macOS bundle, we want to copy the file directly inside the bundle
-			set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Frameworks/")
-		else()
-			# For macOS non-bundle, we copy in the lib folder
-			set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib")
-		endif()
-		# For macOS bundle, We don't want to install as we'll copy the whole bundle
-		if(NOT _IS_BUNDLE)
-			# And install in the lib folder
-			set(RUNTIME_LIBRARIES_INST_FOLDER "${INSTALL_BASE_FOLDER}/lib")
-		endif()
-	else()
-		# For linux, we copy in the lib folder
-		# TODO: Get rpath from the binary
-		set(RUNTIME_LIBRARIES_DEST_FOLDER "$<TARGET_FILE_DIR:${TARGET_NAME}>/../lib")
-		# And install in the lib folder
-		set(RUNTIME_LIBRARIES_INST_FOLDER "${INSTALL_BASE_FOLDER}/lib")
+	if (NOT DEPLOY_INSTALL_RELATIVE_PATH)
+		set(DEPLOY_INSTALL_RELATIVE_PATH "bin")
 	endif()
+
+	# Compute absolute installation folder
+	get_filename_component(INSTALL_FOLDER "${CMAKE_INSTALL_PREFIX}/${DEPLOY_INSTALL_RELATIVE_PATH}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
 
 	# Init code for both easy-debug and install scripts
 	string(CONCAT INIT_CODE
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/IsNewerThan.cmake\")\n"
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/DeployBinaryDependencies.cmake\")\n"
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/SignBinary.cmake\")\n"
+		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/GetBinaryRuntimePath.cmake\")\n"
 		"set(BINARIES_TO_SIGN)\n"
 		"set(COPIED_FILES)\n"
 	)
@@ -131,11 +111,16 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
 		"${INIT_CODE}"
+		"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER)\n"
 	)
 
 	if(DEPLOY_INSTALL)
+		# WARNING: install(CODE) does not support multiple parameters, so we have to issue multiple commands
 		install(CODE
 			"${INIT_CODE}"
+		)
+		install(CODE
+			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER RELOCATION_DIR \"${INSTALL_FOLDER}\")"
 		)
 	endif()
 
@@ -168,7 +153,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			endif()
 
 			string(APPEND DEPLOY_SCRIPT_CONTENT
-				"set(RUNTIME_FOLDER \"${RUNTIME_LIBRARIES_DEST_FOLDER}\")\n"
 				"${COPY_TARGET_FILE_CODE}"
 			)
 
@@ -176,10 +160,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			if(DEPLOY_INSTALL)
 				# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
 				if(CMAKE_HOST_WIN32 OR NOT _IS_BUNDLE)
-					# WARNING: install(CODE) does not support multiple parameters
-					install(CODE
-						"set(RUNTIME_FOLDER \"${RUNTIME_LIBRARIES_INST_FOLDER}\")\n"
-					)
 					install(CODE
 						"${COPY_TARGET_FILE_CODE}"
 					)
@@ -249,7 +229,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	# Call deploy non-qt runtime (to handle transitive dependencies) for easy-debug
 	string(APPEND DEPLOY_SCRIPT_CONTENT
-		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"${RUNTIME_LIBRARIES_DEST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
+		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
 	)
 
 	if(DEPLOY_INSTALL)
@@ -257,7 +237,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		if(NOT _IS_BUNDLE)
 			# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
 			install(CODE
-				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"${RUNTIME_LIBRARIES_INST_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
+				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
 			)
 		endif()
 	endif()
