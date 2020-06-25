@@ -234,7 +234,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	if(DEPLOY_INSTALL)
 		# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
-		if(NOT _IS_BUNDLE)
+		if(CMAKE_HOST_WIN32 OR NOT _IS_BUNDLE)
 			# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
 			install(CODE
 				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
