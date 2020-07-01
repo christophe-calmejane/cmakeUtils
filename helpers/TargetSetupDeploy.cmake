@@ -79,11 +79,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	set(VISITED_DEPENDENCIES)
 	cu_private_target_list_link_libraries(${TARGET_NAME} _LIBRARY_DEPENDENCIES_OUTPUT _QT_DEPENDENCIES_OUTPUT)
 
-	# Nothing to deploy?
-	if(NOT _LIBRARY_DEPENDENCIES_OUTPUT AND NOT _QT_DEPENDENCIES_OUTPUT)
-		return()
-	endif()
-
 	get_target_property(_IS_BUNDLE ${TARGET_NAME} MACOSX_BUNDLE)
 
 	# We generate a cmake script that will contain all the commands
@@ -106,12 +101,18 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/GetBinaryRuntimePath.cmake\")\n"
 		"set(BINARIES_TO_SIGN)\n"
 		"set(COPIED_FILES)\n"
+		"set(DEPLOY_LOCK_FILE \"${CMAKE_BINARY_DIR}/deploy.lock\")\n"
+		"file(LOCK \"\${DEPLOY_LOCK_FILE}\" GUARD PROCESS TIMEOUT 30 RESULT_VARIABLE lock_result)\n"
+		"if(NOT \${lock_result} EQUAL 0)\n"
+		"\tmessage(FATAL_ERROR \"Failed to get lock '\${DEPLOY_LOCK_FILE}' within time (\${lock_result}). Try to remove the file if previous build didn't complete correctly.\")\n"
+		"endif()\n"
 	)
 
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
 		"${INIT_CODE}"
 		"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER)\n"
+		"file(MAKE_DIRECTORY \"\${RUNTIME_FOLDER}\")\n"
 	)
 
 	if(DEPLOY_INSTALL)
@@ -121,6 +122,9 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		)
 		install(CODE
 			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER RELOCATION_DIR \"${INSTALL_FOLDER}\")"
+		)
+		install(CODE
+			"file(MAKE_DIRECTORY \"\${RUNTIME_FOLDER}\")"
 		)
 	endif()
 
@@ -244,8 +248,14 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	# Done for deployment
 	string(APPEND DEPLOY_SCRIPT_CONTENT
-		"message(STATUS \"Done\")\n"
+		"file(LOCK \"\${DEPLOY_LOCK_FILE}\" RELEASE)\n"
+		"message(STATUS \"Done deploying ${TARGET_NAME}\")\n"
 	)
+	if(DEPLOY_INSTALL)
+		install(CODE
+			"file(LOCK \"\${DEPLOY_LOCK_FILE}\" RELEASE)"
+		)
+	endif()
 
 	# If code signing is requested
 	if(DEPLOY_SIGN)
