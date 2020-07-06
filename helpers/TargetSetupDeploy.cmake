@@ -90,9 +90,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		set(DEPLOY_INSTALL_RELATIVE_PATH "bin")
 	endif()
 
-	# Compute absolute installation folder
-	get_filename_component(INSTALL_FOLDER "${CMAKE_INSTALL_PREFIX}/${DEPLOY_INSTALL_RELATIVE_PATH}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
-
 	# Init code for both easy-debug and install scripts
 	string(CONCAT INIT_CODE
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/IsNewerThan.cmake\")\n"
@@ -120,11 +117,16 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		install(CODE
 			"${INIT_CODE}"
 		)
-		install(CODE
-			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER RELOCATION_DIR \"${INSTALL_FOLDER}\")"
+		string(APPEND INSTALL_SCRIPT_CONTENT
+			"if(NOT DEFINED CMAKE_INSTALL_PREFIX)\n"
+			"\tset(CMAKE_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\")\n"
+			"endif()\n"
+			"get_filename_component(INSTALL_FOLDER \"\${CMAKE_INSTALL_PREFIX}/${DEPLOY_INSTALL_RELATIVE_PATH}\" ABSOLUTE BASE_DIR \"${CMAKE_BINARY_DIR}\")\n"
+			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER RELOCATION_DIR \"\${INSTALL_FOLDER}\")\n"
+			"file(MAKE_DIRECTORY \"\${RUNTIME_FOLDER}\")\n"
 		)
 		install(CODE
-			"file(MAKE_DIRECTORY \"\${RUNTIME_FOLDER}\")"
+			"${INSTALL_SCRIPT_CONTENT}"
 		)
 	endif()
 
