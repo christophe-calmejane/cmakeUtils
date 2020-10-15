@@ -222,7 +222,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				message(WARNING "Qt on macOS is only supported for BUNDLE applications (Convert ${TARGET_NAME} to a BUNDLE application)")
 				else()
 					string(APPEND DEPLOY_SCRIPT_CONTENT
-						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" \"$<TARGET_BUNDLE_DIR:${TARGET_NAME}>\" -verbose=0 -qmldir=${DEPLOY_QML_DIR} \"-codesign=${LA_TEAM_IDENTIFIER}\")\n"
+						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" \"$<TARGET_BUNDLE_DIR:${TARGET_NAME}>\" -verbose=0 -qmldir=${DEPLOY_QML_DIR} \"-codesign=${DEPLOY_CODESIGN_IDENTITY}\")\n"
 					)
 				endif()
 			endif()
