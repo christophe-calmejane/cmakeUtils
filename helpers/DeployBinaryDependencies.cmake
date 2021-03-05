@@ -105,9 +105,6 @@ function(cu_deploy_runtime_binary)
 	if(NOT CUDRB_TARGET_DIR)
 		message(FATAL_ERROR "TARGET_DIR required")
 	endif()
-	if(NOT EXISTS "${CUDRB_TARGET_DIR}")
-		message(FATAL_ERROR "Specified target directory does not exist: ${CUDRB_TARGET_DIR}")
-	endif()
 
 	# Recursively get dependencies
 	set(VISITED_DEPENDENCIES)

@@ -109,7 +109,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
 		"${INIT_CODE}"
 		"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER)\n"
-		"file(MAKE_DIRECTORY \"\${RUNTIME_FOLDER}\")\n"
 	)
 
 	if(DEPLOY_INSTALL)
@@ -123,7 +122,6 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			"endif()\n"
 			"get_filename_component(INSTALL_FOLDER \"\${CMAKE_INSTALL_PREFIX}/${DEPLOY_INSTALL_RELATIVE_PATH}\" ABSOLUTE BASE_DIR \"${CMAKE_BINARY_DIR}\")\n"
 			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER RELOCATION_DIR \"\${INSTALL_FOLDER}\")\n"
-			"file(MAKE_DIRECTORY \"\${RUNTIME_FOLDER}\")\n"
 		)
 		install(CODE
 			"${INSTALL_SCRIPT_CONTENT}"
