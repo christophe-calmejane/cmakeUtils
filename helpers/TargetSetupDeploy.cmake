@@ -285,6 +285,22 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			install(CODE
 				"${CODESIGNING_CODE}"
 			)
+			# Xcode Generator will use its own signature, so we need to re-sign during installation
+			if("${CMAKE_GENERATOR}" STREQUAL "Xcode")
+				if(${_IS_BUNDLE})
+					set(resign_binary_path "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>")
+				else()
+					set(resign_binary_path "$<TARGET_FILE:${TARGET_NAME}>")
+				endif()
+				string(APPEND INSTALL_RESIGN_CODE
+					"message(STATUS \"Code re-signing ${TARGET_NAME}...\")\n"
+					"cu_sign_binary(BINARY_PATH \"${resign_binary_path}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})\n"
+					"message(STATUS \"Done\")\n"
+				)
+				install(CODE
+					"\n${INSTALL_RESIGN_CODE}"
+				)
+			endif()
 		endif()
 	endif()
 
