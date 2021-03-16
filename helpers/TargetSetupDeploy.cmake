@@ -114,7 +114,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	if(DEPLOY_INSTALL)
 		# WARNING: install(CODE) does not support multiple parameters, so we have to issue multiple commands
 		install(CODE
-			"${INIT_CODE}"
+			"\n${INIT_CODE}"
 		)
 		string(APPEND INSTALL_SCRIPT_CONTENT
 			"if(NOT DEFINED CMAKE_INSTALL_PREFIX)\n"
@@ -124,7 +124,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER RELOCATION_DIR \"\${INSTALL_FOLDER}\")\n"
 		)
 		install(CODE
-			"${INSTALL_SCRIPT_CONTENT}"
+			"\n${INSTALL_SCRIPT_CONTENT}"
 		)
 	endif()
 
@@ -143,7 +143,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				"endif()\n"
 			)
 			# Don't forget to copy the SONAME symlink if it exists (for platforms supporting it), no need to sign it as it's a symlink
-			if(NOT CMAKE_HOST_WIN32)
+			if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
 				string(CONCAT COPY_TARGET_FILE_CODE
 					${COPY_TARGET_FILE_CODE}
 					"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
@@ -163,7 +163,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			# If install deployment is requested
 			if(DEPLOY_INSTALL)
 				# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
-				if(CMAKE_HOST_WIN32 OR NOT _IS_BUNDLE)
+				if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR NOT _IS_BUNDLE)
 					install(CODE
 						"${COPY_TARGET_FILE_CODE}"
 					)
@@ -175,7 +175,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# Handle Qt dependencies
 	if(_QT_DEPENDENCIES_OUTPUT)
 		list(REMOVE_DUPLICATES _QT_DEPENDENCIES_OUTPUT)
-		if(CMAKE_HOST_WIN32 OR APPLE)
+		if(CMAKE_SYSTEM_NAME STREQUAL "Windows" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 			if(NOT TARGET Qt5::qmake)
 				message(FATAL_ERROR "Cannot find Qt5::qmake")
 			endif()
@@ -183,9 +183,9 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			get_target_property(_QMAKE_LOCATION Qt5::qmake IMPORTED_LOCATION)
 			get_filename_component(_DEPLOYQT_DIR ${_QMAKE_LOCATION} DIRECTORY)
 
-			if(CMAKE_HOST_WIN32)
+			if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 				file(TO_CMAKE_PATH "${_DEPLOYQT_DIR}/windeployqt" DEPLOY_QT_COMMAND)
-			elseif(APPLE)
+			elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 				file(TO_CMAKE_PATH "${_DEPLOYQT_DIR}/macdeployqt" DEPLOY_QT_COMMAND)
 			endif()
 
@@ -193,7 +193,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				set(DEPLOY_QML_DIR ".")
 			endif()
 
-			if(CMAKE_HOST_WIN32)
+			if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 				# We also need to run deploy on the target executable so add it at the end of the list
 				list(REMOVE_ITEM _QT_DEPENDENCIES_OUTPUT ${TARGET_NAME})
 				list(APPEND _QT_DEPENDENCIES_OUTPUT ${TARGET_NAME})
@@ -215,9 +215,9 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				if(DEPLOY_INSTALL)
 					install(DIRECTORY $<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt/ DESTINATION bin)
 				endif()
-			elseif(APPLE)
+			elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 				if(NOT _IS_BUNDLE)
-				message(WARNING "Qt on macOS is only supported for BUNDLE applications (Convert ${TARGET_NAME} to a BUNDLE application)")
+					message(WARNING "Qt on macOS is only supported for BUNDLE applications (Convert ${TARGET_NAME} to a BUNDLE application)")
 				else()
 					STRING(REPLACE "\"" "" UNQUOTED_CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})
 					string(APPEND DEPLOY_SCRIPT_CONTENT
@@ -239,7 +239,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	if(DEPLOY_INSTALL)
 		# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
-		if(CMAKE_HOST_WIN32 OR NOT _IS_BUNDLE)
+		if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR NOT _IS_BUNDLE)
 			# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
 			install(CODE
 				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
