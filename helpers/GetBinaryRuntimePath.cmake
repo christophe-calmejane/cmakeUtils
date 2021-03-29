@@ -59,7 +59,7 @@ function(cu_get_binary_runtime_path)
 		endif()
 
 		# We have to find LC_RPATH in the output
-		string(REGEX MATCH "LC_RPATH[^\n]*\n.+cmdsize[^\n]*\n.+path[ ]+(.+) \\(" MATCH_RESULT "${CMD_OUTPUT}")
+		string(REGEX MATCH "LC_RPATH[^\n]*\n[ \t]+cmdsize[^\n]*\n[ \t]+path[ ]+([^(]+) \\(" MATCH_RESULT "${CMD_OUTPUT}")
 		if(CMAKE_MATCH_COUNT EQUAL 1)
 			set(RPATH "${CMAKE_MATCH_1}")
 			# Check if we have replacement to do
