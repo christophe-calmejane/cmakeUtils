@@ -224,6 +224,10 @@ function(cu_setup_xcode_codesigning TARGET_NAME)
 			set_target_properties(${TARGET_NAME} PROPERTIES XCODE_ATTRIBUTE_OTHER_CODE_SIGN_FLAGS "--timestamp --deep --strict --force --options=runtime")
 			# Enable Hardened Runtime (required to notarize applications)
 			set_target_properties(${TARGET_NAME} PROPERTIES XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME YES)
+		else()
+			# Silence CU_TEAM_IDENTIFIER unused variable warning
+			if(CU_TEAM_IDENTIFIER)
+			endif()
 		endif()
 	endif()
 endfunction()
@@ -260,6 +264,30 @@ function(cu_setup_asan_options TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
 		if(NOT ${targetType} STREQUAL "STATIC_LIBRARY")
 			target_link_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+		endif()
+	endif()
+endfunction()
+
+###############################################################################
+# Setup minimum version for Apple platforms
+# Optional parameters:
+#  - "MACOS <Min version>" => Set the minimum version for macOS platform
+#  - "IOS <Min version>" => Set the minimum version for iOS platform
+function(cu_setup_apple_minimum_versions)
+	# Parse arguments
+	cmake_parse_arguments(CUSAMV "" "MACOS;IOS" "" ${ARGN})
+
+	# Get the correct variable to check
+	if(CMAKE_SYSTEM_NAME AND CMAKE_SYSTEM_NAME STREQUAL "iOS")
+		set(PARAM_TO_READ "CUSAMV_IOS")
+	else()
+		set(PARAM_TO_READ "CUSAMV_MACOS")
+	endif()
+
+	if(${PARAM_TO_READ})
+		# Check if we must set a new value (nothing in cache or greater version already set)
+		if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET OR CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS ${${PARAM_TO_READ}})
+			set(CMAKE_OSX_DEPLOYMENT_TARGET ${${PARAM_TO_READ}} CACHE INTERNAL "Force minimum target version" FORCE)
 		endif()
 	endif()
 endfunction()
