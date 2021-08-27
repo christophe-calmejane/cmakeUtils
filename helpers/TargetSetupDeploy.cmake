@@ -105,6 +105,23 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"endif()\n"
 	)
 
+	# Workaround for https://gitlab.kitware.com/cmake/cmake/-/issues/20938
+	if (CMAKE_VERSION STRLESS "3.666") # TODO: Change version to the one that fixes the bug
+		if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+			# Contrary to 'install', EFFECTIVE_PLATFORM_NAME is not set by cmake when the script is called, so use the same backup that's defined in install scripts
+			string(APPEND INIT_CODE
+				"if(NOT EFFECTIVE_PLATFORM_NAME)\n"
+				"\tif(NOT \"\$ENV{EFFECTIVE_PLATFORM_NAME}\" STREQUAL \"\")\n"
+				"\t\tset(EFFECTIVE_PLATFORM_NAME \"\$ENV{EFFECTIVE_PLATFORM_NAME}\")\n"
+				"\tendif()\n"
+				"\tif(NOT EFFECTIVE_PLATFORM_NAME)\n"
+				"\t\tset(EFFECTIVE_PLATFORM_NAME -iphoneos)\n"
+				"\tendif()\n"
+				"endif()\n"
+			)
+		endif()
+	endif()
+
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
 		"${INIT_CODE}"
