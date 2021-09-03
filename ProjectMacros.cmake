@@ -418,7 +418,7 @@ function(cu_setup_deploy_library TARGET_NAME)
 				cu_private_setup_signing_command(${TARGET_NAME})
 			endif()
 
-			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib FRAMEWORK DESTINATION lib)
 			install(EXPORT ${TARGET_NAME} DESTINATION cmake)
 
 		# Interface library install rules
