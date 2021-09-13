@@ -419,7 +419,7 @@ function(cu_setup_headers_install_rules FILES_LIST INCLUDE_ABSOLUTE_BASE_FOLDER)
 	foreach(f ${FILES_LIST})
 		get_filename_component(dir ${f} DIRECTORY)
 		file(RELATIVE_PATH dir ${INCLUDE_ABSOLUTE_BASE_FOLDER} ${dir})
-		install(FILES ${f} CONFIGURATIONS Release DESTINATION include/${dir})
+		install(FILES ${f} CONFIGURATIONS Debug Release DESTINATION include/${dir})
 	endforeach()
 endfunction()
 
