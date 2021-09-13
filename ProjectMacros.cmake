@@ -523,9 +523,10 @@ function(cu_setup_executable_options TARGET_NAME)
 	# Prevent visual studio deprecated warnings about CRT and Sockets
 	cu_remove_vs_deprecated_warnings(${TARGET_NAME})
 	
-	# Add a postfix in debug mode (but only if not a macOS bundle as it is not supported and will cause error in other parts of the scripts)
+	# Add a postfix in debug mode (but only if not a macOS bundle/framework as it is not supported and will cause error in other parts of the scripts)
 	cu_is_macos_bundle(${TARGET_NAME} isBundle)
-	if(NOT ${isBundle})
+	cu_is_macos_framework(${TARGET_NAME} isFramework)
+	if(NOT ${isBundle} AND NOT ${isFramework})
 		set_target_properties(${TARGET_NAME} PROPERTIES DEBUG_POSTFIX "-d")
 	endif()
 
