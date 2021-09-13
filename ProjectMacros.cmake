@@ -316,9 +316,17 @@ endfunction()
 
 ###############################################################################
 # Setup common options for a library target
-function(cu_setup_library_options TARGET_NAME BASE_LIB_NAME)
+function(cu_setup_library_options TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
+
+	# Cannot use ARGN directly with list() command. Copy to a variable first.
+	set (EXTRA_ARGS ${ARGN})
+	# Did we get any optional args?
+	list(LENGTH EXTRA_ARGS COUNT_EXTRA_ARGS)
+	if(${COUNT_EXTRA_ARGS} GREATER 0)
+		message(FATAL_ERROR "No extra arg expected when calling cu_setup_library_options.\nPotentially check for define change from ${TARGET_NAME}_cxx_STATICS to ${TARGET_NAME}_STATICS in exports.hpp\n")
+	endif()
 
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
@@ -333,8 +341,8 @@ function(cu_setup_library_options TARGET_NAME BASE_LIB_NAME)
 	# Static library special options
 	if(${targetType} STREQUAL "STATIC_LIBRARY")
 		target_link_libraries(${TARGET_NAME} PUBLIC ${LINK_LIBRARIES} ${ADD_LINK_LIBRARIES})
-		# Compile c++ as static exports
-		target_compile_options(${TARGET_NAME} PUBLIC "-D${BASE_LIB_NAME}_cxx_STATICS")
+		# Set a preprocessor define to properly setup symbols visibility/linkage (a shared library will automatically create a ${TARGET_NAME}_EXPORTS define)
+		target_compile_options(${TARGET_NAME} PUBLIC "-D${TARGET_NAME}_STATICS")
 		# Defaults to hidden symbols for Gcc/Clang
 		if(NOT MSVC)
 			if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
