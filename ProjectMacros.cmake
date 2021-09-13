@@ -108,6 +108,19 @@ function(cu_remove_vs_deprecated_warnings TARGET_NAME)
 endfunction()
 
 ###############################################################################
+# Returns TRUE if TARGET is a macOS/iOS framework library
+function(cu_is_macos_framework TARGET_NAME IS_FRAMEWORK)
+	if(APPLE)
+		get_target_property(isFramework ${TARGET_NAME} FRAMEWORK)
+		if(${isFramework})
+			set(${IS_FRAMEWORK} TRUE PARENT_SCOPE)
+			return()
+		endif()
+	endif()
+	set(${IS_FRAMEWORK} FALSE PARENT_SCOPE)
+endfunction()
+
+###############################################################################
 # Returns TRUE if TARGET is a macOS bundle application
 function(cu_is_macos_bundle TARGET_NAME IS_BUNDLE)
 	if(APPLE)
@@ -192,11 +205,16 @@ function(cu_copy_symbols TARGET_NAME)
 
 	elseif(APPLE)
 		if(${targetType} STREQUAL "SHARED_LIBRARY")
-			install(FILES "$<TARGET_FILE:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
+			cu_is_macos_framework(${TARGET_NAME} isFramework)
+			if(${isFramework} AND "${CMAKE_GENERATOR}" STREQUAL "Xcode") # Only xcode seems to put dSYM at the same location than bundle/framework dir
+				install(FILES "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
+			else()
+				install(FILES "$<TARGET_FILE:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
+			endif()
 		elseif(${targetType} STREQUAL "EXECUTABLE")
 			cu_is_macos_bundle(${TARGET_NAME} isBundle)
-			if(${isBundle})
-				install(FILES "${CMAKE_CURRENT_BINARY_DIR}/\${CMAKE_INSTALL_CONFIG_NAME}/$<TARGET_FILE_NAME:${TARGET_NAME}>.app.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
+			if(${isBundle} AND "${CMAKE_GENERATOR}" STREQUAL "Xcode") # Only xcode seems to put dSYM at the same location than bundle/framework dir
+				install(FILES "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
 			else()
 				install(FILES "$<TARGET_FILE:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
 			endif()
