@@ -43,7 +43,7 @@ endif()
 
 if(WIN32)
 	if(ENABLE_CODE_SIGNING AND NOT CU_SIGNTOOL_OPTIONS)
-		message(FATAL_ERROR "Required variable (CU_SIGNTOOL_OPTIONS) not defined before including CommonProjectProperties.cmake")
+		message(FATAL_ERROR "Required variable (CU_SIGNTOOL_OPTIONS) not defined before including ProjectProperties.cmake")
 	endif()
 	find_program(DOT_PROGRAM "dot")
 	if(NOT DOT_PROGRAM)
