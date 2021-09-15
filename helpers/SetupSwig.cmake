@@ -12,15 +12,16 @@ set(CU_SETUP_SWIG_INCLUDED true)
 # Mandatory parameters:
 #  - "TARGET_NAME <target name>" => Name of the target to link against
 #  - "INTERFACE_FILE <SWIG interface file>" => Path of the SWIG interface file
-#  - "LANGUAGES <target copy directory>" => directory where to copy runtime dependencies
+#  - "LANGUAGES <target copy directory>" => Directory where to copy runtime dependencies
 # Optional parameters:
 #  - "SWIG_TARGET_PREFIX <prefix name to use>" => Force a specific prefix for the SWIG target instead of the default (TARGET_NAME)
-#  - "REQUIRED" => flag indicating if an error should be thrown in case swig or a language is not found
+#  - "REQUIRED" => Flag indicating if an error should be thrown in case swig or a language is not found
+#  - "INSTALL_SUPPORT_FILES" => Flag indicating if support files are installed
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
 
-	cmake_parse_arguments(CUSST "REQUIRED" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX" "LANGUAGES" ${ARGN})
+	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX" "LANGUAGES" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUSST_TARGET_NAME)
@@ -85,7 +86,18 @@ function(cu_setup_swig_target)
 					SOVERSION ${CU_PROJECT_VERSION_MAJOR}
 				)
 			endif()
+
+			# Should we install support files
+			if(CUSST_INSTALL_SUPPORT_FILES)
+				install(DIRECTORY "${SWIG_FOLDER}/${SWIG_LANG}.files/" CONFIGURATIONS Release DESTINATION "swig/${SWIG_LANG}")
+			endif()
 		endforeach()
+
+		# Should we install support files
+		if(CUSST_INSTALL_SUPPORT_FILES)
+			install(FILES "${CUSST_INTERFACE_FILE}" CONFIGURATIONS Release DESTINATION swig)
+		endif()
+
 	else()
 		if(CUSST_REQUIRED)
 			message(FATAL_ERROR "Couldn't find SWIG module or languages")
