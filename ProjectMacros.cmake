@@ -1,5 +1,8 @@
 # Common Project Macros to help setup a CMake project
 
+# Set this variable before the include guard so it's always correctly defined for the current repository
+set(CU_ROOT_DIR "${PROJECT_SOURCE_DIR}") # Folder containing the main CMakeLists.txt for the current repository including this file
+
 # Avoid multi inclusion of this file (cannot use include_guard as multiple copies of this file are included from multiple places)
 if(CU_PROJECT_MACROS_INCLUDED)
 	return()
@@ -7,7 +10,7 @@ endif()
 set(CU_PROJECT_MACROS_INCLUDED true)
 
 # Some global variables
-set(CU_ROOT_DIR "${PROJECT_SOURCE_DIR}") # Folder containing the main CMakeLists.txt for the repository including this file
+set(CU_TOP_LEVEL_SOURCE_DIR "${PROJECT_SOURCE_DIR}") # Folder containing the main CMakeLists.txt for the first repository including this file
 set(CU_TOP_LEVEL_BINARY_DIR "${PROJECT_BINARY_DIR}") # Folder containing the top level binary files (CMake root output folder)
 set(CMAKE_MACROS_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 set(CU_TARGET_ARCH "32")
