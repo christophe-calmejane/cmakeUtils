@@ -75,6 +75,27 @@ function(cu_set_parallel_build TARGET_NAME)
 endfunction()
 
 ###############################################################################
+# Set TARGET_SYSTEM_xxx compile definition
+function(cu_set_target_system_definition TARGET_NAME)
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		set(TARGET_SYSTEM_NAME "TARGET_SYSTEM_WINDOWS")
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		set(TARGET_SYSTEM_NAME "TARGET_SYSTEM_DARWIN")
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		set(TARGET_SYSTEM_NAME "TARGET_SYSTEM_LINUX")
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+		set(TARGET_SYSTEM_NAME "TARGET_SYSTEM_IOS")
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+		set(TARGET_SYSTEM_NAME "TARGET_SYSTEM_ANDROID")
+	else()
+		message(FATAL_ERROR "Unkown CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+	endif()
+
+	target_compile_definitions(${TARGET_NAME} PRIVATE ${TARGET_SYSTEM_NAME})
+
+endfunction()
+
+###############################################################################
 # Set maximum warning level, and treat warnings as errors
 # Applies on a target, must be called after target has been defined with
 # 'add_library' or 'add_executable'.
@@ -159,6 +180,10 @@ function(cu_force_symbols_file TARGET_NAME)
 					XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING[variant=Release] "NO"
 				)
 			else()
+				# Currently Xcode does not inject the get-task-allow entitlement for executables that have
+				# DEPLOYMENT_POSTPROCESSING set to YES. This prevents debugging, which is extremely annoying.
+				# So set DEPLOYMENT_POSTPROCESSING to NO for debug builds (this means the binary won't be striped)
+				# Bug report submited to Apple: https://feedbackassistant.apple.com/feedback/9219851
 				set_target_properties(${TARGET_NAME} PROPERTIES
 					XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT[variant=Debug] "dwarf-with-dsym"
 					XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT[variant=Release] "dwarf-with-dsym"
@@ -252,6 +277,22 @@ function(cu_setup_xcode_codesigning TARGET_NAME)
 		else()
 			# Silence CU_TEAM_IDENTIFIER unused variable warning
 			if(CU_TEAM_IDENTIFIER)
+			endif()
+		endif()
+	endif()
+endfunction()
+
+###############################################################################
+# Setup BITCODE for iOS.
+function(cu_setup_bitcode TARGET_NAME)
+	if(APPLE)
+		if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+			# Always force bitcode generation (not using the marker). Disable BITCODE if this is problematic
+			if("${CMAKE_GENERATOR}" STREQUAL "Xcode")
+				set_target_properties(${TARGET_NAME} PROPERTIES XCODE_ATTRIBUTE_ENABLE_BITCODE YES)
+				set_target_properties(${TARGET_NAME} PROPERTIES XCODE_ATTRIBUTE_BITCODE_GENERATION_MODE bitcode)
+			else()
+				target_compile_options(${TARGET_NAME} PRIVATE -fembed-bitcode)
 			endif()
 		endif()
 	endif()
@@ -377,6 +418,16 @@ function(cu_setup_library_options TARGET_NAME)
 			set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 		endif()
 
+	# Module library special options
+	elseif(${targetType} STREQUAL "MODULE_LIBRARY")
+		target_link_libraries(${TARGET_NAME} PRIVATE ${LINK_LIBRARIES} ${ADD_LINK_LIBRARIES})
+		# Defaults to hidden symbols for Gcc/Clang
+		if(NOT MSVC)
+			if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+				target_compile_options(${TARGET_NAME} PRIVATE -fvisibility=hidden)
+			endif()
+		endif()
+
 	# Unsupported target type
 	else()
 		message(FATAL_ERROR "Unsupported target type for cu_setup_library_options: ${targetType}")
@@ -405,6 +456,12 @@ function(cu_setup_library_options TARGET_NAME)
 	# Set xcode automatic codesigning
 	cu_setup_xcode_codesigning(${TARGET_NAME})
 
+	# Set BITCODE
+	cu_setup_bitcode(${TARGET_NAME})
+
+	# Set TARGET_SYSTEM_xxx compile definition
+	cu_set_target_system_definition(${TARGET_NAME})
+
 	# Use cmake folders
 	set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Libraries")
 
@@ -431,18 +488,21 @@ endfunction()
 # Optional parameters:
 #  - INSTALL -> Generate CMake install rules
 #  - SIGN -> Code sign (ignored for everything but SHARED_LIBRARY)
+#  - NO_EXPORT_TARGET -> Do not export cmake target
 function(cu_setup_deploy_library TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
 
 	# Parse arguments
-	cmake_parse_arguments(SDL "INSTALL;SIGN" "" "" ${ARGN})
+	cmake_parse_arguments(SDL "INSTALL;SIGN;NO_EXPORT_TARGET" "" "" ${ARGN})
 
 	if(SDL_INSTALL)
 		# Static library install rules
 		if(${targetType} STREQUAL "STATIC_LIBRARY")
 			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} ARCHIVE DESTINATION lib)
-			install(EXPORT ${TARGET_NAME} DESTINATION cmake)
+			if(NOT SDL_NO_EXPORT_TARGET)
+				install(EXPORT ${TARGET_NAME} DESTINATION cmake)
+			endif()
 
 		# Shared library install rules
 		elseif(${targetType} STREQUAL "SHARED_LIBRARY")
@@ -452,12 +512,16 @@ function(cu_setup_deploy_library TARGET_NAME)
 			endif()
 
 			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib FRAMEWORK DESTINATION lib)
-			install(EXPORT ${TARGET_NAME} DESTINATION cmake)
+			if(NOT SDL_NO_EXPORT_TARGET)
+				install(EXPORT ${TARGET_NAME} DESTINATION cmake)
+			endif()
 
 		# Interface library install rules
 		elseif(${targetType} STREQUAL "INTERFACE_LIBRARY")
 			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME})
-			install(EXPORT ${TARGET_NAME} DESTINATION cmake)
+			if(NOT SDL_NO_EXPORT_TARGET)
+				install(EXPORT ${TARGET_NAME} DESTINATION cmake)
+			endif()
 
 		# Unsupported target type
 		else()
@@ -554,10 +618,18 @@ function(cu_setup_executable_options TARGET_NAME)
 	# Set rpath for linux
 	elseif(NOT WIN32)
 		set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "../lib")
+		# Directly use install rpath
+		set_target_properties(${TARGET_NAME} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
 	endif()
 	
 	# Set xcode automatic codesigning
 	cu_setup_xcode_codesigning(${TARGET_NAME})
+
+	# Set BITCODE
+	cu_setup_bitcode(${TARGET_NAME})
+
+	# Set TARGET_SYSTEM_xxx compile definition
+	cu_set_target_system_definition(${TARGET_NAME})
 
 	target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${CU_ROOT_DIR}/include")
 
