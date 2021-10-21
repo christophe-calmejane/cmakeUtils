@@ -39,37 +39,35 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 	set(DEPENDENCIES_LIST "")
 	cu_get_binary_dynamic_dependencies(BINARY_PATH "${BINARY_PATH}" DEP_LIST_OUTPUT DEPENDENCIES_LIST)
 
-	if(CMAKE_HOST_WIN32)
-		set(VCPKG_INSTALLED_RUNTIME_FOLDER "bin")
-	elseif(CMAKE_HOST_APPLE)
-		set(VCPKG_INSTALLED_RUNTIME_FOLDER "lib")
-	else()
-		set(VCPKG_INSTALLED_RUNTIME_FOLDER "lib")
-	endif()
-
 	foreach(DEPENDENCY ${DEPENDENCIES_LIST})
+		set(IS_FOUND FALSE)
 		# First check if we can find this binary in destination folder
 		if(EXISTS "${DESTINATION_FOLDER}/${DEPENDENCY}")
+			set(IS_FOUND TRUE)
 			set(DEPENDENCY_PATH "${DESTINATION_FOLDER}/${DEPENDENCY}")
 			# message(STATUS "Process already deployed dependency ${DEPENDENCY}...")
 
-		# Then check if we can find this binary in vcpkg installed directory
-		elseif(EXISTS "${CUDRB_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
-			set(DEPENDENCY_PATH "${CUDRB_INSTALLED_DIR}/${VCPKG_INSTALLED_RUNTIME_FOLDER}/${DEPENDENCY}")
-			# Add to the list of files to copy
-			if(NOT "${DEPENDENCY_PATH}" IN_LIST BINARY_DEPENDENCIES)
-				list(APPEND BINARY_DEPENDENCIES "${DEPENDENCY_PATH}")
-			endif()
-			# message(STATUS "Process vcpkg dependency ${DEPENDENCY}...")
-			
-		# Else skip it
 		else()
-			# message(STATUS "Dependency ${DEPENDENCY} not found, skipping...")
-			continue()
+			# Then check if we can find this binary in any of the provided directories
+			foreach(SEARCH_DIR ${CUDRB_SEARCH_DIRS})
+				if(EXISTS "${SEARCH_DIR}/${DEPENDENCY}")
+					set(IS_FOUND TRUE)
+					set(DEPENDENCY_PATH "${SEARCH_DIR}/${DEPENDENCY}")
+					# Add to the list of files to copy
+					if(NOT "${DEPENDENCY_PATH}" IN_LIST BINARY_DEPENDENCIES)
+						list(APPEND BINARY_DEPENDENCIES "${DEPENDENCY_PATH}")
+					endif()
+					# message(STATUS "Process dependency ${DEPENDENCY} from folder ${SEARCH_DIR}...")
+				endif()
+			endforeach()
 		endif()
 
-		# Recursively process this binary
-		cu_private_get_binary_dependencies_to_copy("${DEPENDENCY_PATH}" "${DESTINATION_FOLDER}")
+		if(${IS_FOUND})
+			# Recursively process this binary
+			cu_private_get_binary_dependencies_to_copy("${DEPENDENCY_PATH}" "${DESTINATION_FOLDER}")
+		else()
+			message(STATUS "Dependency ${DEPENDENCY} not found, skipping...")
+		endif()
 	endforeach()
 
 	set(VISITED_DEPENDENCIES ${VISITED_DEPENDENCIES} PARENT_SCOPE)
@@ -82,14 +80,14 @@ endfunction()
 #  - "BINARY_PATH <binary path>" => Path of the binary to deploy
 #  - "TARGET_DIR <target copy directory>" => directory where to copy runtime dependencies
 # Optional parameters:
-#  - "INSTALLED_DIR <vcpkg installed directory>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
+#  - "SEARCH_DIRS <folder> ..." => List of folders to search for dependencies in
 #  - "COPIED_FILES_VAR <list of copied files>" => variable receiving the list of copied files (files are appended to this list variable, if it's specified)
 function(cu_deploy_runtime_binary)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.15) # FOLLOW_SYMLINK_CHAIN added in cmake 3.15
 
 	# Parse arguments
-	cmake_parse_arguments(CUDRB "" "BINARY_PATH;INSTALLED_DIR;TARGET_DIR;COPIED_FILES_VAR" "" ${ARGN})
+	cmake_parse_arguments(CUDRB "" "BINARY_PATH;TARGET_DIR;COPIED_FILES_VAR" "SEARCH_DIRS" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUDRB_BINARY_PATH)
@@ -99,8 +97,12 @@ function(cu_deploy_runtime_binary)
 		message(FATAL_ERROR "Specified binary does not exist: ${CUDRB_BINARY_PATH}")
 	endif()
 
-	if(CUDRB_INSTALLED_DIR AND NOT EXISTS "${CUDRB_INSTALLED_DIR}")
-		message(FATAL_ERROR "Specified vcpkg installed directory does not exist: ${CUDRB_INSTALLED_DIR}")
+	if(CUDRB_SEARCH_DIRS)
+		foreach(SEARCH_DIR ${CUDRB_SEARCH_DIRS})
+			if(NOT EXISTS "${SEARCH_DIR}")
+				message(FATAL_ERROR "Specified search directory does not exist: ${SEARCH_DIR}")
+			endif()
+		endforeach()
 	endif()
 
 	if(NOT CUDRB_TARGET_DIR)
