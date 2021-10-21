@@ -36,6 +36,7 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 	# message(STATUS "Binary Folder: ${BINARY_FOLDER}")
 
 	# Get binary dependencies
+	set(DEPENDENCIES_LIST "")
 	cu_get_binary_dynamic_dependencies(BINARY_PATH "${BINARY_PATH}" DEP_LIST_OUTPUT DEPENDENCIES_LIST)
 
 	if(CMAKE_HOST_WIN32)
