@@ -67,8 +67,11 @@ function(cu_get_binary_dynamic_dependencies)
 		foreach(LINE ${SPLIT_LINES})
 			string(REGEX MATCH "@rpath/([^\n]+\\.dylib)" MATCH_RESULT "${LINE}")
 			if(CMAKE_MATCH_COUNT EQUAL 1)
-				# Append to list
-				list(APPEND ${CUGBDD_DEP_LIST_OUTPUT} "${CMAKE_MATCH_1}")
+				# Ignore self, since otool returns itself as dependency
+				if(NOT "${BINARY_NAME}" STREQUAL "${CMAKE_MATCH_1}")
+					# Append to list
+					list(APPEND ${CUGBDD_DEP_LIST_OUTPUT} "${CMAKE_MATCH_1}")
+				endif()
 			endif()
 		endforeach()
 
