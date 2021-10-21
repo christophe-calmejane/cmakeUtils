@@ -65,7 +65,6 @@ endfunction()
 # Optional parameters:
 #  - "INSTALL" => flag instructing the script to also install-deploy the runtime dependencies
 #  - "SIGN" => flag instructing the script to code sign the runtime dependencies
-#  - "VCPKG_INSTALLED_PATH <vcpkg installed folder>" => vcpkg "installed" root folder (right after TRIPLET, postfixing "debug" if the target is built in DEBUG)
 #  - "QML_DIR <path>" => override default QML_DIR folder
 #  - "INSTALL_DESTINATION <relative path>" => Relative path that was given to the DESTINATION option of the install() rule for TARGET_NAME (defaults to 'bin')
 #  - "SIGNTOOL_OPTIONS <windows signtool options>..." => list of options to pass to windows signtool utility (signing will be done on all runtime dependencies if this is specified)
@@ -84,7 +83,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# We generate a cmake script that will contain all the commands
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${TARGET_NAME}.cmake)
 
-	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "VCPKG_INSTALLED_PATH;QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
+	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
 
 	if (NOT DEPLOY_INSTALL_RELATIVE_PATH)
 		set(DEPLOY_INSTALL_RELATIVE_PATH "bin")
@@ -98,6 +97,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"include(\"${CU_TARGET_SETUP_DEPLOY_FOLDER}/GetBinaryRuntimePath.cmake\")\n"
 		"set(BINARIES_TO_SIGN)\n"
 		"set(COPIED_FILES)\n"
+		"set(DEPENDENCIES_SEARCH_DIRS)\n"
 		"set(DEPLOY_LOCK_FILE \"${CMAKE_BINARY_DIR}/deploy.lock\")\n"
 		"file(LOCK \"\${DEPLOY_LOCK_FILE}\" GUARD PROCESS TIMEOUT 30 RESULT_VARIABLE lock_result)\n"
 		"if(NOT \${lock_result} EQUAL 0)\n"
@@ -152,6 +152,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		foreach(_LIBRARY ${_LIBRARY_DEPENDENCIES_OUTPUT})
 			# Copy dynamic library to the runtime folder (but only if file is newer, which includes if they are identical) based on RUNTIME_FOLDER variable that is different for easy-debug and install rules
 			string(CONCAT COPY_TARGET_FILE_CODE
+				"list(APPEND DEPENDENCIES_SEARCH_DIRS \"$<TARGET_FILE_DIR:${_LIBRARY}>\")\n"
 				"cu_is_newer_than(\"$<TARGET_FILE:${_LIBRARY}>\" \"\${RUNTIME_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\" IS_NEWER_THAN_RESULT)\n"
 				"if(\${IS_NEWER_THAN_RESULT})\n"
 				"\tmessage(\" - Copying target file $<TARGET_FILE:${_LIBRARY}> => \${RUNTIME_FOLDER}\")\n"
@@ -245,13 +246,10 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		endif()
 	endif()
 
-	if(DEPLOY_VCPKG_INSTALLED_PATH)
-		set(VCPKG_FOLDER_OPTIONS "INSTALLED_DIR \"${DEPLOY_VCPKG_INSTALLED_PATH}$<$<CONFIG:Debug>:/debug>\"")
-	endif()
-
 	# Call deploy non-qt runtime (to handle transitive dependencies) for easy-debug
 	string(APPEND DEPLOY_SCRIPT_CONTENT
-		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
+		"list(REMOVE_DUPLICATES DEPENDENCIES_SEARCH_DIRS)\n"
+		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" SEARCH_DIRS \${DEPENDENCIES_SEARCH_DIRS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
 	)
 
 	if(DEPLOY_INSTALL)
@@ -259,7 +257,10 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR NOT _IS_BUNDLE)
 			# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
 			install(CODE
-				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" ${VCPKG_FOLDER_OPTIONS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
+				"list(REMOVE_DUPLICATES DEPENDENCIES_SEARCH_DIRS)"
+			)
+			install(CODE
+				 "cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" SEARCH_DIRS \${DEPENDENCIES_SEARCH_DIRS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)"
 			)
 		endif()
 	endif()

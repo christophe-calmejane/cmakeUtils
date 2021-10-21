@@ -643,8 +643,8 @@ endfunction()
 ###############################################################################
 # Setup runtime deployment rules for an executable target, for easy debug and install (if specified)
 # Optional parameters:
-#  - INSTALL -> Generate CMake install rules
-#  - SIGN -> Code sign all binaries
+#  - "INSTALL" -> Generate CMake install rules
+#  - "SIGN"-> Code sign all binaries
 #  - "BUNDLE_DIR <install directory>" => directory where to install BUNDLE file type (defaults to ".")
 #  - "RUNTIME_DIR <install directory>" => directory where to install RUNTIME file type (defaults to "bin")
 function(cu_setup_deploy_runtime TARGET_NAME)
