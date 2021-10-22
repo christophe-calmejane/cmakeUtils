@@ -66,7 +66,8 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 			# Recursively process this binary
 			cu_private_get_binary_dependencies_to_copy("${DEPENDENCY_PATH}" "${DESTINATION_FOLDER}")
 		else()
-			message(STATUS "Dependency ${DEPENDENCY} not found, skipping...")
+			# message(STATUS "Dependency ${DEPENDENCY} not found, skipping...")
+			continue()
 		endif()
 	endforeach()
 
