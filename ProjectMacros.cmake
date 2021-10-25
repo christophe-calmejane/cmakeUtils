@@ -359,6 +359,36 @@ function(cu_setup_apple_minimum_versions)
 endfunction()
 
 ###############################################################################
+# Set a file as a resource for a target.
+# This will copy the file to the resources folder for non bundle targets and to the Resources folder for bundles
+# Optional parameters:
+#  - "INSTALL" => Will also install the file (for non-bundle target as the file will already be inside the bundle otherwise)
+function(cu_set_resource_file TARGET_NAME SOURCE_FILE_PATH DESTINATION_NAME)
+	# Parse arguments
+	cmake_parse_arguments(CUSRF "INSTALL" "" "" ${ARGN})
+
+	cu_is_macos_bundle(${TARGET_NAME} isBundle)
+	if(${isBundle})
+		add_custom_command(
+			TARGET ${TARGET_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SOURCE_FILE_PATH}" "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Resources/${DESTINATION_NAME}"
+			VERBATIM
+		)
+	else()
+		add_custom_command(
+			TARGET ${TARGET_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SOURCE_FILE_PATH}" "$<TARGET_FILE_DIR:${TARGET_NAME}>/resources/${DESTINATION_NAME}"
+			VERBATIM
+		)
+		if(CUSRF_INSTALL)
+			install(FILES ${SOURCE_FILE_PATH} DESTINATION resources)
+		endif()
+	endif()
+endfunction()
+
+###############################################################################
 # Setup common options for a library target
 function(cu_setup_library_options TARGET_NAME)
 	# Get target type for specific options
@@ -643,8 +673,8 @@ endfunction()
 ###############################################################################
 # Setup runtime deployment rules for an executable target, for easy debug and install (if specified)
 # Optional parameters:
-#  - INSTALL -> Generate CMake install rules
-#  - SIGN -> Code sign all binaries
+#  - "INSTALL" -> Generate CMake install rules
+#  - "SIGN"-> Code sign all binaries
 #  - "BUNDLE_DIR <install directory>" => directory where to install BUNDLE file type (defaults to ".")
 #  - "RUNTIME_DIR <install directory>" => directory where to install RUNTIME file type (defaults to "bin")
 function(cu_setup_deploy_runtime TARGET_NAME)
