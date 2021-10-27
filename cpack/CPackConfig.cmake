@@ -5,6 +5,7 @@
 #  - CU_INSTALL_LICENSE_FILE_PATH -> Set to the path of the license file to use
 #  - CU_INSTALL_ICO_FILE_PATH -> Set to the path of the windows ico file to use
 #  - CU_INSTALL_NSIS_WELCOME_FILE_PATH -> Set to the path of the NSIS welcome image to use
+#  - CU_INSTALL_PRODUCTBUILD_BACKGROUND_FILE_PATH -> Set to the path of the PRODUCTBUILD background image to use (might be relative if CPACK_PRODUCTBUILD_RESOURCES_DIR is used)
 # Optional:
 #  - USE_IFW_GENERATOR -> Use IFW os-independent installer for all platforms
 #  - USE_DRAGDROP_GENERATOR -> Use d&d on macOS instead of ProductBuild
@@ -286,12 +287,17 @@ else()
 
 		if(NOT USE_DRAGDROP_GENERATOR)
 
+			# Sanity checks
+			if(NOT DEFINED CU_INSTALL_PRODUCTBUILD_BACKGROUND_FILE_PATH)
+				message(FATAL_ERROR "CU_INSTALL_PRODUCTBUILD_BACKGROUND_FILE_PATH must be defined before including CPackConfig.cmake")
+			endif()
+
 			set(CPACK_GENERATOR productbuild)
 
 			# Set CMake module path to our own cpack template so it's used during generation
 			set(CMAKE_MODULE_PATH ${CU_CPACK_FOLDER}/productbuild ${CMAKE_MODULE_PATH})
 
-			set(CPACK_PRODUCTBUILD_BACKGROUND "background.png")
+			set(CPACK_PRODUCTBUILD_BACKGROUND "${CU_INSTALL_PRODUCTBUILD_BACKGROUND_FILE_PATH}")
 			set(CPACK_PRODUCTBUILD_BACKGROUND_ALIGNMENT "bottomleft")
 			set(CPACK_PRODUCTBUILD_BACKGROUND_SCALING "proportional")
 			set(CPACK_PRODUCTBUILD_BACKGROUND_MIME_TYPE "image/png")
