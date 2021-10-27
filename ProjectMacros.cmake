@@ -18,6 +18,27 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(CU_TARGET_ARCH "64")
 endif()
 
+if(NOT DEFINED PROJECT_NAME)
+	message(FATAL_ERROR "project() must be called before including ProjectMacros.cmake")
+endif()
+
+# Default Component
+set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "${PROJECT_NAME}")
+
+# Enable cmake folders
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+# Configure installation path: we override the default installation path.
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+	set(CMAKE_INSTALL_PREFIX "./Install" CACHE PATH "default install path" FORCE)
+endif()
+
+# Setup "Release" build type, if not specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	message(STATUS "Setting build type to 'Release' as none was specified.")
+	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Specifies the build type." FORCE)
+endif()
+
 # Include TargetSetupDeploy script
 include(${CMAKE_CURRENT_LIST_DIR}/helpers/TargetSetupDeploy.cmake)
 
@@ -271,7 +292,8 @@ function(cu_setup_xcode_codesigning TARGET_NAME)
 				set_target_properties(${TARGET_NAME} PROPERTIES XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${CU_TEAM_IDENTIFIER}")
 			endif()
 			# For xcode code signing to go deeply so all our dylibs are signed as well (will fail with xcode >= 11 otherwise)
-			set_target_properties(${TARGET_NAME} PROPERTIES XCODE_ATTRIBUTE_OTHER_CODE_SIGN_FLAGS "--timestamp --deep --strict --force --options=runtime")
+			# We also need to force the signing identity here, as xcode sometimes choose the wrong one when only given the DEVELOPMENT_TEAM value
+			set_target_properties(${TARGET_NAME} PROPERTIES XCODE_ATTRIBUTE_OTHER_CODE_SIGN_FLAGS "--timestamp --deep --strict --force --options=runtime -s \"${CU_BINARY_SIGNING_IDENTITY}\"")
 			# Enable Hardened Runtime (required to notarize applications)
 			set_target_properties(${TARGET_NAME} PROPERTIES XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME YES)
 		else()
@@ -718,6 +740,8 @@ endfunction()
 # Setup common variables for a C/CXX project
 macro(cu_setup_project PRJ_NAME PRJ_VERSION PRJ_DESC)
 	project(${PRJ_NAME} LANGUAGES C CXX VERSION ${PRJ_VERSION})
+
+	cu_setup_project_version_variables(${PRJ_VERSION})
 
 	set(CU_PROJECT_PRODUCTDESCRIPTION ${PRJ_DESC})
 
