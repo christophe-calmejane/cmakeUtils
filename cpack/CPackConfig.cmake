@@ -4,14 +4,19 @@
 #  - cu_setup_project_version_variables() must have been called
 #  - CU_INSTALL_LICENSE_FILE_PATH -> Set to the path of the license file to use
 #  - CU_INSTALL_ICO_FILE_PATH -> Set to the path of the windows ico file to use
+#  - CU_INSTALL_NSIS_WELCOME_FILE_PATH -> Set to the path of the NSIS welcome image to use
 # Optional:
 #  - USE_IFW_GENERATOR -> Use IFW os-independent installer for all platforms
 #  - USE_DRAGDROP_GENERATOR -> Use d&d on macOS instead of ProductBuild
+#  - CU_INSTALL_NSIS_HEADER_FILE_PATH -> Set to the path of the NSIS header image to use (Must be 150x57)
 # Delegate macros called:
 #  - configure_NSIS_extra_commands()
+#  - configure_NSIS_extra_components()
 #  - configure_PRODUCTBUILD_extra_commands()
-#  - configure_DragNDrop_extra_commands()
+#  - configure_PRODUCTBUILD_extra_components()
+#  - configure_IFW_extra_commands()
 #  - configure_IFW_extra_components()
+#  - configure_DragNDrop_extra_commands()
 
 # Avoid multi inclusion of this file
 if(CU_CMAKE_INSTALLER_SETTINGS_INCLUDED)
@@ -28,17 +33,26 @@ set(CU_CPACK_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 ###
 # Configures the IFW installer
 macro(configure_ifw_installer)
+	# Sanity checks
+	if(NOT DEFINED CU_INSTALL_ICO_FILE_PATH)
+		message(FATAL_ERROR "CU_INSTALL_ICO_FILE_PATH must be defined before including CPackConfig.cmake")
+	endif()
+
+	if(NOT EXISTS "${CU_INSTALL_ICO_FILE_PATH}")
+		message(FATAL_ERROR "Speficied ico file in CU_INSTALL_ICO_FILE_PATH does not exist: ${CU_INSTALL_ICO_FILE_PATH}")
+	endif()
+
 	if(NOT WIN32 AND NOT APPLE)
 		message(FATAL_ERROR "IFW configuration not yet supported for linux")
 	endif()
 
-		# Common settings
-		set(CPACK_GENERATOR IFW)
-		set(CPACK_IFW_PACKAGE_WIZARD_STYLE "Modern")
-		set(CPACK_IFW_PACKAGE_ALLOW_NON_ASCII_CHARACTERS ON)
-		set(CPACK_IFW_PACKAGE_ALLOW_SPACE_IN_PATH ON)
-		set(CPACK_IFW_PRODUCT_URL "${CU_COMPANY_URL}")
-		#set(CPACK_IFW_VERBOSE ON)
+	# Common settings
+	set(CPACK_GENERATOR IFW)
+	set(CPACK_IFW_PACKAGE_WIZARD_STYLE "Modern")
+	set(CPACK_IFW_PACKAGE_ALLOW_NON_ASCII_CHARACTERS ON)
+	set(CPACK_IFW_PACKAGE_ALLOW_SPACE_IN_PATH ON)
+	set(CPACK_IFW_PRODUCT_URL "${CU_COMPANY_URL}")
+	#set(CPACK_IFW_VERBOSE ON)
 
 	# OS Specific defines
 	if(WIN32)
@@ -49,12 +63,15 @@ macro(configure_ifw_installer)
 		set(CPACK_IFW_PACKAGE_ICON "${ICO_PATH}")
 	endif()
 
+	# Add extra commands
+	configure_IFW_extra_commands()
+
 	# Include CPack and CPackIFW so we can call cpack_add_component and cpack_ifw_configure_component
 	include(CPack REQUIRED)
 	include(CPackIFW REQUIRED)
 
 	# Setup the main component
-	cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${CU_PROJECT_FULL_NAME}" DESCRIPTION "Installs ${PROJECT_NAME}")
+	cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME} Application." REQUIRED)
 	cpack_ifw_configure_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} SCRIPT "${CU_CPACK_FOLDER}/ifw/mainComponent.qs" LICENSES "EULA" "${CU_INSTALL_LICENSE_FILE_PATH}" SORTING_PRIORITY 100)
 
 	# Add extra components
@@ -107,14 +124,6 @@ endif()
 
 if(NOT EXISTS "${CU_INSTALL_LICENSE_FILE_PATH}")
 	message(FATAL_ERROR "Specified license file in CU_INSTALL_LICENSE_FILE_PATH does not exist: ${CU_INSTALL_LICENSE_FILE_PATH}")
-endif()
-
-if(NOT DEFINED CU_INSTALL_ICO_FILE_PATH)
-	message(FATAL_ERROR "CU_INSTALL_ICO_FILE_PATH must be defined before including CPackConfig.cmake")
-endif()
-
-if(NOT EXISTS "${CU_INSTALL_ICO_FILE_PATH}")
-	message(FATAL_ERROR "Speficied ico file in CU_INSTALL_ICO_FILE_PATH does not exist: ${CU_INSTALL_ICO_FILE_PATH}")
 endif()
 
 # License file
@@ -186,6 +195,23 @@ else()
 	# Platform-specific options
 	if(WIN32)
 
+		# Sanity checks
+		if(NOT DEFINED CU_INSTALL_ICO_FILE_PATH)
+			message(FATAL_ERROR "CU_INSTALL_ICO_FILE_PATH must be defined before including CPackConfig.cmake")
+		endif()
+
+		if(NOT EXISTS "${CU_INSTALL_ICO_FILE_PATH}")
+			message(FATAL_ERROR "Speficied ico file in CU_INSTALL_ICO_FILE_PATH does not exist: ${CU_INSTALL_ICO_FILE_PATH}")
+		endif()
+
+		if(NOT DEFINED CU_INSTALL_NSIS_WELCOME_FILE_PATH)
+			message(FATAL_ERROR "CU_INSTALL_NSIS_WELCOME_FILE_PATH must be defined before including CPackConfig.cmake")
+		endif()
+
+		if(NOT EXISTS "${CU_INSTALL_NSIS_WELCOME_FILE_PATH}")
+			message(FATAL_ERROR "Speficied ico file in CU_INSTALL_NSIS_WELCOME_FILE_PATH does not exist: ${CU_INSTALL_NSIS_WELCOME_FILE_PATH}")
+		endif()
+
 		set(CPACK_GENERATOR NSIS)
 
 		# Set CMake module path to our own nsis template so it's used during generation
@@ -197,13 +223,12 @@ else()
 			${CU_TOP_LEVEL_BINARY_DIR}/NSIS.definitions.nsh
 		)
 
-		find_file(CPACK_PACKAGE_ICON header.bmp PATHS nsis NO_DEFAULT_PATH)
-		string(REPLACE "/" "\\\\" CPACK_PACKAGE_ICON "${CPACK_PACKAGE_ICON}")
-
 		# NSIS settings
 		string(REPLACE "/" "\\\\" ICO_PATH "${CU_INSTALL_ICO_FILE_PATH}")
-		find_file(WELCOME_BMP "welcome.bmp" PATHS nsis NO_DEFAULT_PATH)
-		string(REPLACE "/" "\\\\" WELCOME_BMP "${WELCOME_BMP}")
+		string(REPLACE "/" "\\\\" WELCOME_BMP "${CU_INSTALL_NSIS_WELCOME_FILE_PATH}")
+		if(DEFINED CU_INSTALL_NSIS_HEADER_FILE_PATH AND EXISTS "${CU_INSTALL_NSIS_HEADER_FILE_PATH}")
+			string(REPLACE "/" "\\\\" CPACK_PACKAGE_ICON "${CU_INSTALL_NSIS_HEADER_FILE_PATH}")
+		endif()
 
 		# Transform / to \ in paths
 		string(REPLACE "/" "\\\\" CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_INSTALL_DIRECTORY}")
@@ -248,7 +273,14 @@ else()
 		# Add extra commands
 		configure_NSIS_extra_commands()
 
+		# Include CPack so we can call cpack_add_component
 		include(CPack REQUIRED)
+
+		# Setup components
+		cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME} Application." REQUIRED)
+
+		# Add extra components
+		configure_NSIS_extra_components()
 
 	elseif(APPLE)
 
@@ -314,6 +346,9 @@ else()
 
 			# Setup components
 			cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME} Application." REQUIRED)
+
+			# Add extra components
+			configure_PRODUCTBUILD_extra_components()
 
 		else()
 
