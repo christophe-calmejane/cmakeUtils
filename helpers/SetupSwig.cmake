@@ -7,6 +7,27 @@ if(CU_SETUP_SWIG_INCLUDED)
 endif()
 set(CU_SETUP_SWIG_INCLUDED true)
 
+function(_private_convert_from_cygwin PATH_VARIABLE)
+	find_program(CYGPATH cygpath)
+	if(CYGPATH)
+		execute_process(COMMAND "${CYGPATH}" -m "${${PATH_VARIABLE}}" OUTPUT_VARIABLE ${PATH_VARIABLE})
+		string(STRIP "${${PATH_VARIABLE}}" ${PATH_VARIABLE})
+		set(${PATH_VARIABLE} "${${PATH_VARIABLE}}" PARENT_SCOPE)
+	endif()
+endfunction()
+
+function(_private_search_swig_dir_cygwin)
+	if(SWIG_EXECUTABLE)
+		message(STATUS "Searching for SWIG_DIR as cygwin path")
+		execute_process(COMMAND "${SWIG_EXECUTABLE}" -swiglib OUTPUT_VARIABLE _swig_output ERROR_VARIABLE _swig_error RESULT_VARIABLE _swig_result)
+		if(NOT _swig_result)
+			string(REGEX REPLACE "[\n\r]+" ";" _SWIG_LIB ${_swig_output})
+			_private_convert_from_cygwin(_SWIG_LIB)
+			set(SWIG_DIR "${_SWIG_LIB}" PARENT_SCOPE)
+		endif()
+	endif()
+endfunction()
+
 ########
 # Setup SWIG
 # Mandatory parameters:
@@ -42,7 +63,18 @@ function(cu_setup_swig_target)
 		message(FATAL_ERROR "LANGUAGES required: Specify at least one SWIG language")
 	endif()
 
+	if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0") 
+		cmake_policy(SET CMP0122 NEW)
+	endif()
+
 	find_package(SWIG 4.0 COMPONENTS ${CUSST_LANGUAGES})
+	if(NOT SWIG_FOUND AND SWIG_EXECUTABLE AND NOT SWIG_DIR AND WIN32)
+		_private_search_swig_dir_cygwin()
+		if(SWIG_DIR)
+			find_package(SWIG 4.0 COMPONENTS ${CUSST_LANGUAGES})
+		endif()
+	endif()
+
 	if(SWIG_FOUND)
 		# Include SWIG module (version 2), as C++
 		include(UseSWIG REQUIRED)
