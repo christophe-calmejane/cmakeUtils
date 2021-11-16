@@ -405,7 +405,38 @@ function(cu_set_resource_file TARGET_NAME SOURCE_FILE_PATH DESTINATION_NAME)
 			VERBATIM
 		)
 		if(CUSRF_INSTALL)
-			install(FILES ${SOURCE_FILE_PATH} DESTINATION resources)
+			install(FILES ${SOURCE_FILE_PATH} DESTINATION resources RENAME ${DESTINATION_NAME})
+		endif()
+	endif()
+endfunction()
+
+###############################################################################
+# Set a folder as a resource for a target.
+# This will copy the given folder to the resources folder for non bundle targets and to the Resources folder for bundles
+# Optional parameters:
+#  - "INSTALL" => Will also install the folder (for non-bundle target as it will already be inside the bundle otherwise)
+function(cu_set_resource_directory TARGET_NAME SOURCE_DIRECTORY_PATH DESTINATION_PATH)
+	# Parse arguments
+	cmake_parse_arguments(CUSRD "INSTALL" "" "" ${ARGN})
+
+	get_filename_component(LAST_FOLDER_NAME "${SOURCE_DIRECTORY_PATH}" NAME)
+	cu_is_macos_bundle(${TARGET_NAME} isBundle)
+	if(${isBundle})
+		add_custom_command(
+			TARGET ${TARGET_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_directory "${SOURCE_DIRECTORY_PATH}" "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Resources/${DESTINATION_PATH}/${LAST_FOLDER_NAME}"
+			VERBATIM
+		)
+	else()
+		add_custom_command(
+			TARGET ${TARGET_NAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_directory "${SOURCE_DIRECTORY_PATH}" "$<TARGET_FILE_DIR:${TARGET_NAME}>/Resources/${DESTINATION_PATH}/${LAST_FOLDER_NAME}"
+			VERBATIM
+		)
+		if(CUSRD_INSTALL)
+			install(DIRECTORY ${SOURCE_DIRECTORY_PATH} DESTINATION resources/${DESTINATION_PATH})
 		endif()
 	endif()
 endfunction()
