@@ -63,7 +63,7 @@ function(cu_setup_swig_target)
 		message(FATAL_ERROR "LANGUAGES required: Specify at least one SWIG language")
 	endif()
 
-	if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0") 
+	if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
 		cmake_policy(SET CMP0122 NEW)
 	endif()
 
