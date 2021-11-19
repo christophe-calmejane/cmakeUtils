@@ -10,6 +10,7 @@
 #  - USE_IFW_GENERATOR -> Use IFW os-independent installer for all platforms
 #  - USE_DRAGDROP_GENERATOR -> Use d&d on macOS instead of ProductBuild
 #  - CU_INSTALL_NSIS_HEADER_FILE_PATH -> Set to the path of the NSIS header image to use (Must be 150x57)
+#  - CU_INSTALL_MAIN_EXECUTABLE_NAME -> Set to the name of the main executable to use (defaults to "${PROJECT_NAME}")
 # Delegate macros called:
 #  - configure_NSIS_extra_commands()
 #  - configure_NSIS_extra_components()
@@ -160,6 +161,13 @@ else()
 	set(PACKAGE_INSTALL_KEY "${PROJECT_NAME}")
 endif()
 
+# Define the main binary name
+if(CU_INSTALL_MAIN_EXECUTABLE_NAME)
+	set(PACKAGE_MAIN_EXECUTABLE_NAME "${CU_INSTALL_MAIN_EXECUTABLE_NAME}")
+else()
+	set(PACKAGE_MAIN_EXECUTABLE_NAME "${PROJECT_NAME}")
+endif()
+
 # Compute Install Version in the form 0xXXYYZZWW
 math(EXPR CU_PROJECT_INSTALL_VERSION "0" OUTPUT_FORMAT HEXADECIMAL)
 # Start with the first 3 digits
@@ -239,7 +247,7 @@ else()
 		set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
 		set(CPACK_NSIS_PACKAGE_NAME "${CPACK_PACKAGE_NAME}") # Name to be shown in the title bar of the installer
 		set(CPACK_NSIS_DISPLAY_NAME "${CU_INSTALL_DISPLAY_NAME}") # Name to be shown in Windows Add/Remove Program control panel
-		set(CPACK_NSIS_INSTALLED_ICON_NAME "bin/${PROJECT_NAME}.exe") # Icon to be shown in Windows Add/Remove Program control panel
+		set(CPACK_NSIS_INSTALLED_ICON_NAME "bin/${PACKAGE_MAIN_EXECUTABLE_NAME}.exe") # Icon to be shown in Windows Add/Remove Program control panel
 		set(CPACK_NSIS_HELP_LINK "${CU_COMPANY_URL}")
 		set(CPACK_NSIS_URL_INFO_ABOUT "${CU_COMPANY_URL}")
 		set(CPACK_NSIS_CONTACT "${CU_PROJECT_CONTACT}")
@@ -260,7 +268,7 @@ else()
 
 		# Add shortcuts during install
 		set(CPACK_NSIS_CREATE_ICONS_EXTRA "\
-			CreateShortCut \\\"$DESKTOP\\\\${CU_NAME_AND_VERSION}.lnk\\\" \\\"$INSTDIR\\\\bin\\\\${PROJECT_NAME}.exe\\\" \\\"\\\""
+			CreateShortCut \\\"$DESKTOP\\\\${CU_NAME_AND_VERSION}.lnk\\\" \\\"$INSTDIR\\\\bin\\\\${PACKAGE_MAIN_EXECUTABLE_NAME}.exe\\\" \\\"\\\""
 		)
 
 		# Remove shortcuts during uninstall
@@ -269,7 +277,7 @@ else()
 		)
 
 		# Add a finish page to run the program
-		set(CPACK_NSIS_MUI_FINISHPAGE_RUN "${PROJECT_NAME}.exe")
+		set(CPACK_NSIS_MUI_FINISHPAGE_RUN "${PACKAGE_MAIN_EXECUTABLE_NAME}.exe")
 
 		# Add extra commands
 		configure_NSIS_extra_commands()
