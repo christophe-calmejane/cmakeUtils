@@ -71,6 +71,7 @@ endfunction()
 #  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
 #  - "CODESIGN_OPTIONS <macOS codesign options>..." => list of options to pass to macOS codesign utility (signing will be done on all runtime dependencies if this is specified)
 #  - "CODESIGN_IDENTITY <signing identity>" => code signing identity to be used by macOS codesign utility (autodetect will be used if not specified)
+#  - "DEP_SEARCH_DIRS <path>..." => list of additional directories to search for dependencies
 function(cu_deploy_runtime_target TARGET_NAME)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
@@ -83,7 +84,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# We generate a cmake script that will contain all the commands
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${TARGET_NAME}.cmake)
 
-	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS" ${ARGN})
+	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS" ${ARGN})
 
 	if (NOT DEPLOY_INSTALL_RELATIVE_PATH)
 		set(DEPLOY_INSTALL_RELATIVE_PATH "bin")
@@ -104,6 +105,14 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"\tmessage(FATAL_ERROR \"Failed to get lock '\${DEPLOY_LOCK_FILE}' within time (\${lock_result}). Try to remove the file if previous build didn't complete correctly.\")\n"
 		"endif()\n"
 	)
+
+	if(DEPLOY_DEP_SEARCH_DIRS)
+		foreach(DEP_SEARCH_DIR ${DEPLOY_DEP_SEARCH_DIRS})
+			string(APPEND INIT_CODE
+				"list(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+			)
+		endforeach()
+	endif()
 
 	# Workaround for https://gitlab.kitware.com/cmake/cmake/-/issues/20938
 	if (CMAKE_VERSION STRLESS "3.666") # TODO: Change version to the one that fixes the bug

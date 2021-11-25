@@ -742,8 +742,11 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	# Get signing options
 	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
 
+	# Get additional folders for runtime deployment
+	get_property(depSearchDirs GLOBAL PROPERTY CU_DEPLOY_RUNTIME_SEARCH_DIRS)
+
 	# cmakeUtils deploy runtime
-	cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS})
+	cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} DEP_SEARCH_DIRS ${depSearchDirs})
 
 	# Check for install and sign of the binary itself
 	cmake_parse_arguments(SDR "INSTALL;SIGN" "BUNDLE_DIR;RUNTIME_DIR" "" ${ARGN})
