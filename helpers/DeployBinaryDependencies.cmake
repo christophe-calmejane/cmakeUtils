@@ -58,6 +58,7 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 						list(APPEND BINARY_DEPENDENCIES "${DEPENDENCY_PATH}")
 					endif()
 					# message(STATUS "Process dependency ${DEPENDENCY} from folder ${SEARCH_DIR}...")
+					break()
 				endif()
 			endforeach()
 		endif()
