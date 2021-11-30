@@ -73,7 +73,7 @@ macro(configure_ifw_installer)
 	include(CPackIFW REQUIRED)
 
 	# Setup the main component
-	cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME} Application." REQUIRED)
+	cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME}." REQUIRED)
 	cpack_ifw_configure_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} SCRIPT "${CU_CPACK_FOLDER}/ifw/mainComponent.qs" LICENSES "EULA" "${CU_INSTALL_LICENSE_FILE_PATH}" SORTING_PRIORITY 100)
 
 	# Add extra components
@@ -286,7 +286,7 @@ else()
 		include(CPack REQUIRED)
 
 		# Setup components
-		cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME} Application." REQUIRED)
+		cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME}." REQUIRED)
 
 		# Add extra components
 		configure_NSIS_extra_components()
@@ -359,7 +359,7 @@ else()
 			include(CPack REQUIRED)
 
 			# Setup components
-			cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME} Application." REQUIRED)
+			cpack_add_component(${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME} DISPLAY_NAME "${PROJECT_NAME}" DESCRIPTION "Installs ${PROJECT_NAME}." REQUIRED)
 
 			# Add extra components
 			configure_PRODUCTBUILD_extra_components()
