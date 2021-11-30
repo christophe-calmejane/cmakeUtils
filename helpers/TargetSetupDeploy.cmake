@@ -71,7 +71,8 @@ endfunction()
 #  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
 #  - "CODESIGN_OPTIONS <macOS codesign options>..." => list of options to pass to macOS codesign utility (signing will be done on all runtime dependencies if this is specified)
 #  - "CODESIGN_IDENTITY <signing identity>" => code signing identity to be used by macOS codesign utility (autodetect will be used if not specified)
-#  - "DEP_SEARCH_DIRS <path>..." => list of additional directories to search for dependencies
+#  - "DEP_SEARCH_DIRS_DEBUG <path>..." => list of additional directories to search for dependencies when building debug binaries
+#  - "DEP_SEARCH_DIRS_OPTIMIZED <path>..." => list of additional directories to search for dependencies when building optimized binaries
 function(cu_deploy_runtime_target TARGET_NAME)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
@@ -84,7 +85,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# We generate a cmake script that will contain all the commands
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${TARGET_NAME}.cmake)
 
-	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS" ${ARGN})
+	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
 
 	if (NOT DEPLOY_INSTALL_RELATIVE_PATH)
 		set(DEPLOY_INSTALL_RELATIVE_PATH "bin")
@@ -106,10 +107,33 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"endif()\n"
 	)
 
-	if(DEPLOY_DEP_SEARCH_DIRS)
-		foreach(DEP_SEARCH_DIR ${DEPLOY_DEP_SEARCH_DIRS})
-			string(APPEND INIT_CODE
-				"list(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+	set(DEPLOY_INIT_CODE "")
+	set(INSTALL_INIT_CODE "")
+	if(DEPLOY_DEP_SEARCH_DIRS_DEBUG)
+		foreach(DEP_SEARCH_DIR ${DEPLOY_DEP_SEARCH_DIRS_DEBUG})
+			string(APPEND DEPLOY_INIT_CODE
+				"if(\"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+				"endif()\n"
+			)
+			string(APPEND INSTALL_INIT_CODE
+				"if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+				"endif()\n"
+			)
+		endforeach()
+	endif()
+	if(DEPLOY_DEP_SEARCH_DIRS_OPTIMIZED)
+		foreach(DEP_SEARCH_DIR ${DEPLOY_DEP_SEARCH_DIRS_OPTIMIZED})
+			string(APPEND DEPLOY_INIT_CODE
+				"if(NOT \"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+				"endif()\n"
+			)
+			string(APPEND INSTALL_INIT_CODE
+				"if(NOT \"\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+				"endif()\n"
 			)
 		endforeach()
 	endif()
@@ -134,6 +158,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	string(APPEND DEPLOY_SCRIPT_CONTENT
 		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
 		"${INIT_CODE}"
+		"${DEPLOY_INIT_CODE}"
 		"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER)\n"
 	)
 
@@ -141,6 +166,9 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		# WARNING: install(CODE) does not support multiple parameters, so we have to issue multiple commands
 		install(CODE
 			"\n${INIT_CODE}"
+		)
+		install(CODE
+			"\n${INSTALL_INIT_CODE}"
 		)
 		string(APPEND INSTALL_SCRIPT_CONTENT
 			"if(NOT DEFINED CMAKE_INSTALL_PREFIX)\n"
