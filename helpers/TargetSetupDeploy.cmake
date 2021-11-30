@@ -100,7 +100,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"set(COPIED_FILES)\n"
 		"set(DEPENDENCIES_SEARCH_DIRS)\n"
 		"set(DEPLOY_LOCK_FILE \"${CMAKE_BINARY_DIR}/deploy.lock\")\n"
-		"file(LOCK \"\${DEPLOY_LOCK_FILE}\" GUARD PROCESS TIMEOUT 30 RESULT_VARIABLE lock_result)\n"
+		"file(LOCK \"\${DEPLOY_LOCK_FILE}\" GUARD PROCESS TIMEOUT 90 RESULT_VARIABLE lock_result)\n"
 		"if(NOT \${lock_result} EQUAL 0)\n"
 		"\tmessage(FATAL_ERROR \"Failed to get lock '\${DEPLOY_LOCK_FILE}' within time (\${lock_result}). Try to remove the file if previous build didn't complete correctly.\")\n"
 		"endif()\n"
