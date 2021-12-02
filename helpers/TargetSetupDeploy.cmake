@@ -42,7 +42,8 @@ function(cu_private_target_list_link_libraries TARGET_NAME LIBRARY_DEPENDENCIES_
 		list(REMOVE_ITEM _LIBRARIES ${TARGET_NAME})
 		# Check dependencies
 		foreach(_LIBRARY ${_LIBRARIES})
-			if(${_LIBRARY} MATCHES "Qt5::")
+			# Add TARGET_NAME to the list of dependencies to be "qtdeployed", except if it is a Static Library or a Qt Library
+			if(${_LIBRARY} MATCHES "Qt5::" AND NOT _TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND NOT ${TARGET_NAME} MATCHES "Qt5::")
 				list(APPEND ${QT_DEPENDENCIES_OUTPUT} ${TARGET_NAME})
 				continue()
 			endif()
