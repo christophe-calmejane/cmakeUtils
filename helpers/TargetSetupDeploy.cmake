@@ -27,7 +27,7 @@ function(cu_private_target_list_link_libraries TARGET_NAME LIBRARY_DEPENDENCIES_
 		return()
 	endif()
 	# Generate list of libraries on which the target depends
-	list(APPEND _LIBRARIES "")
+	set(_LIBRARIES "")
 	get_target_property(_LINK_LIBRARIES ${TARGET_NAME} LINK_LIBRARIES)
 	if(_LINK_LIBRARIES)
 		list(APPEND _LIBRARIES ${_LINK_LIBRARIES})
