@@ -12,7 +12,7 @@ set(CU_TARGET_SETUP_DEPLOY_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 
 ##################################
 # Internal function
-function(cu_private_target_list_link_libraries TARGET_NAME LIBRARY_DEPENDENCIES_OUTPUT QT_DEPENDENCIES_OUTPUT)
+function(cu_private_target_list_link_libraries TARGET_NAME CLOSEST_RUNTIME_PARENT LIBRARY_DEPENDENCIES_OUTPUT QT_DEPENDENCIES_OUTPUT)
 	# Check if already visited
 	if(${TARGET_NAME} IN_LIST VISITED_DEPENDENCIES)
 		return()
@@ -25,6 +25,9 @@ function(cu_private_target_list_link_libraries TARGET_NAME LIBRARY_DEPENDENCIES_
 	get_target_property(_TARGET_TYPE ${TARGET_NAME} TYPE)
 	if(_TARGET_TYPE STREQUAL "INTERFACE_LIBRARY")
 		return()
+	# If the target is an executable or a shared library, set it as the closest runtime parent
+	elseif(_TARGET_TYPE STREQUAL "EXECUTABLE" OR _TARGET_TYPE STREQUAL "SHARED_LIBRARY")
+		set(CLOSEST_RUNTIME_PARENT ${TARGET_NAME})
 	endif()
 	# Generate list of libraries on which the target depends
 	set(_LIBRARIES "")
@@ -42,17 +45,23 @@ function(cu_private_target_list_link_libraries TARGET_NAME LIBRARY_DEPENDENCIES_
 		list(REMOVE_ITEM _LIBRARIES ${TARGET_NAME})
 		# Check dependencies
 		foreach(_LIBRARY ${_LIBRARIES})
-			# Add TARGET_NAME to the list of dependencies to be "qtdeployed", except if it is a Static Library or a Qt Library
-			if(${_LIBRARY} MATCHES "Qt5::" AND NOT _TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND NOT ${TARGET_NAME} MATCHES "Qt5::")
-				list(APPEND ${QT_DEPENDENCIES_OUTPUT} ${TARGET_NAME})
+			# This is a Qt library
+			if(${_LIBRARY} MATCHES "Qt5::")
+				if(${CLOSEST_RUNTIME_PARENT} MATCHES "Qt5::")
+					message(FATAL_ERROR "Should not process inside Qt libraries ")
+				endif()
+				# Add closest runtime parent to the list of dependencies to be "qtdeployed"
+				list(APPEND ${QT_DEPENDENCIES_OUTPUT} ${CLOSEST_RUNTIME_PARENT})
+				# Do not continue processing into Qt libraries dependencies
 				continue()
 			endif()
 			if(TARGET ${_LIBRARY})
 				get_target_property(_LIBRARY_TYPE ${_LIBRARY} TYPE)
+				# This dependency is a Shared library, add it to the list of dependencies to be deployed
 				if(_LIBRARY_TYPE STREQUAL "SHARED_LIBRARY")
 					list(APPEND ${LIBRARY_DEPENDENCIES_OUTPUT} ${_LIBRARY})
 				endif()
-				cu_private_target_list_link_libraries(${_LIBRARY} ${LIBRARY_DEPENDENCIES_OUTPUT} ${QT_DEPENDENCIES_OUTPUT})
+				cu_private_target_list_link_libraries("${_LIBRARY}" "${CLOSEST_RUNTIME_PARENT}" ${LIBRARY_DEPENDENCIES_OUTPUT} ${QT_DEPENDENCIES_OUTPUT})
 			endif()
 		endforeach()
 	endif()
@@ -79,7 +88,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	cmake_minimum_required(VERSION 3.14)
 
 	set(VISITED_DEPENDENCIES)
-	cu_private_target_list_link_libraries(${TARGET_NAME} _LIBRARY_DEPENDENCIES_OUTPUT _QT_DEPENDENCIES_OUTPUT)
+	cu_private_target_list_link_libraries("${TARGET_NAME}" "${TARGET_NAME}" _LIBRARY_DEPENDENCIES_OUTPUT _QT_DEPENDENCIES_OUTPUT)
 
 	get_target_property(_IS_BUNDLE ${TARGET_NAME} MACOSX_BUNDLE)
 
