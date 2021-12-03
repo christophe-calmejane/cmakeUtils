@@ -83,34 +83,82 @@ endmacro()
 
 ###
 # Adds a file association with an installed binary
-# Example: add_installer_file_association(".cubin" "CU Binary File" "bin/MyRes.dll,2" "bin/MyProg.exe")
+# Example: add_installer_file_association("cubin" "MyProg.cubin" "CU Binary File" "bin/MyRes.dll,2" "bin/MyProg.exe")
 # This will add the extension ".cubin" to the system, showing the 2nd icon from the binary found in installed path/bin/MyRes.dll, and run the binary found in installed path/bin/MyProg.exe with the file as parameter
-function(add_installer_file_association EXTENSION_NAME EXTENSION_DESCRIPTION INSTALLED_RELATIVE_ICON_PATH INSTALLED_RELATIVE_BINARY_PATH)
+function(add_installer_file_association EXTENSION_NAME EXTENSION_CLASS EXTENSION_DESCRIPTION INSTALLED_RELATIVE_ICON_PATH INSTALLED_RELATIVE_BINARY_PATH)
 
 	string(REPLACE "/" "\\\\" RELATIVE_ICON_PATH "${INSTALLED_RELATIVE_ICON_PATH}")
 	string(REPLACE "/" "\\\\" RELATIVE_BINARY_PATH "${INSTALLED_RELATIVE_BINARY_PATH}")
 
 	# Add extra install commands
 	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}\n\
-		; Associate the files for ${DESCRIPTION}\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${PROJECT_NAME}.${EXTENSION_NAME}${CU_DOT_VERSION}\\\" \\\"\\\" \\\"${EXTENSION_DESCRIPTION}\\\"\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${PROJECT_NAME}.${EXTENSION_NAME}${CU_DOT_VERSION}\\\\DefaultIcon\\\" \\\"\\\" \\\"$INSTDIR\\\\${RELATIVE_ICON_PATH}\\\"\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${PROJECT_NAME}.${EXTENSION_NAME}${CU_DOT_VERSION}\\\\shell\\\\open\\\" \\\"FriendlyAppName\\\" \\\"${CU_NAME_AND_VERSION}\\\"\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${PROJECT_NAME}.${EXTENSION_NAME}${CU_DOT_VERSION}\\\\shell\\\\open\\\\command\\\" \\\"\\\" '\\\"$INSTDIR\\\\${RELATIVE_BINARY_PATH}\\\" \\\"%1\\\"'\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\.${EXTENSION_NAME}\\\" \\\"\\\" \\\"${PROJECT_NAME}.${EXTENSION_NAME}${CU_DOT_VERSION}\\\"\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\.${EXTENSION_NAME}\\\\OpenWithProgIds\\\" \\\"${PROJECT_NAME}.${EXTENSION_NAME}${CU_DOT_VERSION}\\\" \\\"\\\"\n\
-		System::Call \\\"shell32.dll::SHChangeNotify(i,i,i,i) v (0x08000000, 0, 0, 0)\\\""
+		; Associate the files for ${EXTENSION_CLASS}\n\
+		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\" \\\"\\\" \\\"${EXTENSION_DESCRIPTION}\\\"\n\
+		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\DefaultIcon\\\" \\\"\\\" \\\"$INSTDIR\\\\${RELATIVE_ICON_PATH}\\\"\n\
+		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\shell\\\\open\\\" \\\"FriendlyAppName\\\" \\\"${CU_NAME_AND_VERSION}\\\"\n\
+		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\shell\\\\open\\\\command\\\" \\\"\\\" '\\\"$INSTDIR\\\\${RELATIVE_BINARY_PATH}\\\" \\\"%1\\\"'\n\
+		WriteRegStr HKLM \\\"Software\\\\Classes\\\\.${EXTENSION_NAME}\\\" \\\"\\\" \\\"${EXTENSION_CLASS}\\\"\n\
+		WriteRegStr HKLM \\\"Software\\\\Classes\\\\.${EXTENSION_NAME}\\\\OpenWithProgIds\\\" \\\"${EXTENSION_CLASS}\\\" \\\"\\\"\n"
 	PARENT_SCOPE)
 
 	# Add extra uninstall commands
 	set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "${CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS}\n\
-		; Dissociate the files from ${DESCRIPTION}\n\
-		DeleteRegKey HKLM \\\"Software\\\\Classes\\\\${PROJECT_NAME}.${EXTENSION_NAME}${CU_DOT_VERSION}\\\"\n\
-		System::Call \\\"shell32.dll::SHChangeNotify(i,i,i,i) v (0x08000000, 0, 0, 0)\\\""
+		; Dissociate the files from ${EXTENSION_CLASS}\n\
+		DeleteRegKey HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\"\n"
 	PARENT_SCOPE)
-
 endfunction()
 
+###
+# Remove an existing file association
+# Example: add_installer_file_unassociation("cubin" "CU Binary File")
+# Usefull to remove the association of a binary that was installed by a previous version of the installer
+function(add_installer_file_unassociation EXTENSION_NAME EXTENSION_CLASS)
+
+  # Add extra install commands
+	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}\n\
+		; Dissociate the files from ${EXTENSION_CLASS}\n\
+		DeleteRegKey HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\"\n"
+	PARENT_SCOPE)
+endfunction()
+
+###
+# Force a refresh of the icon cache
+function(add_installer_refresh_associations)
+	# Add extra install commands
+	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}\n\
+		; Refresh the file associations\n\
+		!ifdef SHCNE_ASSOCCHANGED\n\
+		!undef SHCNE_ASSOCCHANGED\n\
+		!endif\n\
+		!define SHCNE_ASSOCCHANGED 0x08000000\n\
+		!ifdef SHCNF_IDLIST\n\
+		!undef SHCNF_IDLIST\n\
+		!endif\n\
+		!define SHCNF_IDLIST 0\n\
+		!ifdef SHCNF_FLUSH\n\
+		!undef SHCNF_FLUSH\n\
+		!endif\n\
+		!define SHCNF_FLUSH 0x1000\n\
+		System::Call \\\"shell32::SHChangeNotify(i,i,i,i) v(\\\${SHCNE_ASSOCCHANGED},\\\${SHCNF_IDLIST}|\\\${SHCNF_FLUSH},0,0)\\\"\n"
+	PARENT_SCOPE)
+	# Add extra uninstall commands
+	set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "${CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS}\n\
+		; Refresh the file associations\n\
+		!ifdef SHCNE_ASSOCCHANGED\n\
+		!undef SHCNE_ASSOCCHANGED\n\
+		!endif\n\
+		!define SHCNE_ASSOCCHANGED 0x08000000\n\
+		!ifdef SHCNF_IDLIST\n\
+		!undef SHCNF_IDLIST\n\
+		!endif\n\
+		!define SHCNF_IDLIST 0\n\
+		!ifdef SHCNF_FLUSH\n\
+		!undef SHCNF_FLUSH\n\
+		!endif\n\
+		!define SHCNF_FLUSH 0x1000\n\
+		System::Call \\\"shell32::SHChangeNotify(i,i,i,i) v(\\\${SHCNE_ASSOCCHANGED},\\\${SHCNF_IDLIST}|\\\${SHCNF_FLUSH},0,0)\\\"\n"
+	PARENT_SCOPE)
+endfunction()
 
 ###############################################################################
 ### Start of CPack settings
