@@ -176,6 +176,10 @@ if(NOT EXISTS "${CU_INSTALL_LICENSE_FILE_PATH}")
 	message(FATAL_ERROR "Specified license file in CU_INSTALL_LICENSE_FILE_PATH does not exist: ${CU_INSTALL_LICENSE_FILE_PATH}")
 endif()
 
+if("${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}" MATCHES " ")
+	message(FATAL_ERROR "CMAKE_INSTALL_DEFAULT_COMPONENT_NAME must not contain spaces (defaults to PROJECT_NAME), manually set it before including CPackConfig.cmake")
+endif()
+
 # License file
 set(CPACK_RESOURCE_FILE_LICENSE "${CU_INSTALL_LICENSE_FILE_PATH}")
 
@@ -371,10 +375,15 @@ else()
 				"${CU_CPACK_FOLDER}/productbuild/uninstaller/postinstall.in"
 				"${CMAKE_BINARY_DIR}/uninstaller/install-scripts/postinstall"
 			)
+			configure_file(
+				"${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml.in"
+				"${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
+			)
+
 			set(UNINSTALL_PROJECT_GENERATED_PKG "${CMAKE_BINARY_DIR}/uninstaller.pkg")
 			add_custom_command(OUTPUT "${UNINSTALL_PROJECT_GENERATED_PKG}"
 				COMMAND pkgbuild
-					--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${PROJECT_NAME}.uninstaller.pkg
+					--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.uninstaller.pkg
 					--version 1.0
 					--nopayload
 					--sign ${ESCAPED_IDENTITY}
@@ -387,14 +396,15 @@ else()
 			set(UNINSTALL_PROJECT_GENERATED_PRODUCT "${CMAKE_BINARY_DIR}/Uninstall ${CPACK_PACKAGE_NAME}.pkg")
 			add_custom_command(OUTPUT "${UNINSTALL_PROJECT_GENERATED_PRODUCT}"
 				COMMAND productbuild
-					--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${PROJECT_NAME}.uninstaller.product
+					--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.uninstaller.product
 					--version 1.0
 					--sign ${ESCAPED_IDENTITY}
-					--distribution "${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml"
+					--distribution "${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
 					--package-path "${CMAKE_BINARY_DIR}"
 					${UNINSTALL_PROJECT_GENERATED_PRODUCT}
 				DEPENDS
 					"${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml"
+					"${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
 					${UNINSTALL_PROJECT_GENERATED_PKG}
 			)
 			add_custom_target(uninstall_pkg ALL DEPENDS "${UNINSTALL_PROJECT_GENERATED_PRODUCT}")
