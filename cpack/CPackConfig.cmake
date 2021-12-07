@@ -354,6 +354,9 @@ else()
 
 			set(CPACK_GENERATOR productbuild)
 
+			# Set CMake module path to our own cpack template so it's used during generation
+			set(CMAKE_MODULE_PATH ${CU_CPACK_FOLDER}/productbuild ${CMAKE_MODULE_PATH})
+
 			set(CPACK_PRODUCTBUILD_BACKGROUND "${CU_INSTALL_PRODUCTBUILD_BACKGROUND_FILE_PATH}")
 			set(CPACK_PRODUCTBUILD_BACKGROUND_ALIGNMENT "bottomleft")
 			set(CPACK_PRODUCTBUILD_BACKGROUND_SCALING "proportional")
