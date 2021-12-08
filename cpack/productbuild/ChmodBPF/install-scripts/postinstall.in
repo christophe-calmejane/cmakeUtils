@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# Fix up ownership and permissions on /Library/Application Support/@PROJECT_NAME@;
+# Fix up ownership and permissions on /Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@;
 # for some reason, it's not being owned by root:wheel, and it's not
 # publicly readable and, for directories and executables, not publicly
 # searchable/executable.
@@ -11,8 +11,8 @@
 # XXX - that may be a problem with the process of building the installer
 # package; if so, that's where it *should* be fixed.
 #
-chown -R root:wheel "/Library/Application Support/@PROJECT_NAME@"
-chmod -R a+rX,go-w "/Library/Application Support/@PROJECT_NAME@"
+chown -R root:wheel "/Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@"
+chmod -R a+rX,go-w "/Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@"
 
 CHMOD_BPF_PLIST="/Library/LaunchDaemons/@CU_COMPANY_DOMAIN@.@CU_PROJECT_COMPANYNAME@.@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@.ChmodBPF.plist"
 BPF_GROUP="access_bpf"
@@ -26,8 +26,6 @@ fi
 
 dseditgroup -q -o edit -a "$USER" -t user "$BPF_GROUP"
 
-cp "/Library/Application Support/@PROJECT_NAME@/ChmodBPF/@CU_COMPANY_DOMAIN@.@CU_PROJECT_COMPANYNAME@.@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@.ChmodBPF.plist" \
-    "$CHMOD_BPF_PLIST"
 chmod u=rw,g=r,o=r "$CHMOD_BPF_PLIST"
 chown root:wheel "$CHMOD_BPF_PLIST"
 

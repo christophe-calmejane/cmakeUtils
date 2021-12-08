@@ -15,7 +15,7 @@ launchctl unload -F "$CHMOD_BPF_PLIST"
 dscl . -read /Groups/"$BPF_GROUP" > /dev/null 2>&1 && \
     dseditgroup -q -o delete "$BPF_GROUP"
 
-rm -rf "/Library/Application Support/@PROJECT_NAME@"
+rm -rf "/Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@/@CHMODBPF_NAME@"
 
 rm -f "$CHMOD_BPF_PLIST"
 

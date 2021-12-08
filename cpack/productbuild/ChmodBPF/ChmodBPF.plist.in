@@ -7,6 +7,6 @@
 	<key>RunAtLoad</key>
 	<true/>
 	<key>Program</key>
-	<string>/Library/Application Support/@PROJECT_NAME@/ChmodBPF/ChmodBPF</string>
+	<string>/Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@/ChmodBPF/ChmodBPF</string>
 </dict>
 </plist>
