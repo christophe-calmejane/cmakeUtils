@@ -1,0 +1,4 @@
+#!/bin/sh
+
+installerPath="$2/Applications/@MACOS_INSTALL_FOLDER@/ChmodBPF/Uninstall ChmodBPF.pkg"
+installer -pkg "$installerPath" -target /
