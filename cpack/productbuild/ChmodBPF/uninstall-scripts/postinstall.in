@@ -1,0 +1,22 @@
+#!/bin/sh
+
+#
+# Remove the following:
+# - The ChmmodBPF launch daemon
+# - The ChmmodBPF script
+# - The access_bpf group
+#
+
+CHMOD_BPF_PLIST="/Library/LaunchDaemons/@CU_COMPANY_DOMAIN@.@CU_PROJECT_COMPANYNAME@.@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@.ChmodBPF.plist"
+BPF_GROUP="access_bpf"
+
+launchctl unload -F "$CHMOD_BPF_PLIST"
+
+dscl . -read /Groups/"$BPF_GROUP" > /dev/null 2>&1 && \
+    dseditgroup -q -o delete "$BPF_GROUP"
+
+rm -rf "/Library/Application Support/@PROJECT_NAME@"
+
+rm -f "$CHMOD_BPF_PLIST"
+
+pkgutil --forget "@CU_COMPANY_DOMAIN@.@CU_PROJECT_COMPANYNAME@.@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@.ChmodBPF.pkg"
