@@ -6,13 +6,21 @@ if(CU_CHMODBPF_INCLUDED)
 endif()
 set(CU_CHMODBPF_INCLUDED true)
 
-function(cu_chmodbpf_add_component)
-	# Some variables
-	set(CHMODBPF_NAME "ChmodBPF")
-	set(CU_CHMODBPF_PKG_SRC_DIR ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/${CHMODBPF_NAME})
-	set(CU_CHMODBPF_PKG_OUT_DIR ${CMAKE_BINARY_DIR}/${CHMODBPF_NAME})
-	
+# Some variables
+set(CU_CHMODBPF_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(CHMODBPF_NAME "ChmodBPF")
+set(CU_CHMODBPF_PKG_SRC_DIR ${CU_CHMODBPF_DIR}/${CHMODBPF_NAME})
+set(CU_CHMODBPF_PKG_OUT_DIR ${CMAKE_BINARY_DIR}/${CHMODBPF_NAME})
+
+macro(cu_chmodbpf_extra_commands)
+	string(TOUPPER "${CHMODBPF_NAME}" CHMODBPF_NAME_UPPER)
+	set(CPACK_POSTFLIGHT_${CHMODBPF_NAME_UPPER}_SCRIPT "${CU_CHMODBPF_PKG_OUT_DIR}/auto-install.sh")
+endmacro()
+
+macro(cu_chmodbpf_add_component)
 	# Build ChmodBPF PKG tree
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/auto-install.sh.in" "${CU_CHMODBPF_PKG_OUT_DIR}/auto-install.sh")
+	# configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/auto-uninstall.sh.in" "${CU_CHMODBPF_PKG_OUT_DIR}/auto-uninstall.sh") # Currently not being used. Designed to be called by the uninstaller, but requires some modifications in the uninstall script to call this one somehow.
 	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/install-distribution.xml.in" "${CU_CHMODBPF_PKG_OUT_DIR}/install-distribution.xml")
 	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/uninstall-distribution.xml.in" "${CU_CHMODBPF_PKG_OUT_DIR}/uninstall-distribution.xml")
 	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/install-scripts/postinstall.in" "${CU_CHMODBPF_PKG_OUT_DIR}/install-scripts/postinstall")
@@ -58,7 +66,8 @@ function(cu_chmodbpf_add_component)
 		${INSTALL_CHMODBPF_GENERATED_PKG}
 	)
 	add_custom_target(install_chmodbpf_pkg ALL DEPENDS "${INSTALL_CHMODBPF_GENERATED_PRODUCT}")
-	install(PROGRAMS "${INSTALL_CHMODBPF_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}" CONFIGURATIONS Release)
+	install(PROGRAMS "${INSTALL_CHMODBPF_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}/${CHMODBPF_NAME}" CONFIGURATIONS Release COMPONENT ${CHMODBPF_NAME})
+	cpack_add_component(${CHMODBPF_NAME} DISPLAY_NAME "Chmod BPF" DESCRIPTION "This package will install the ChmodBPF launch daemon, create the access_bpf group, and add you to that group." REQUIRED HIDDEN)
 
 	# Create ChmodBPF uninstall package
 	set(UNINSTALL_CHMODBPF_GENERATED_PKG "${CMAKE_BINARY_DIR}/uninstall.${CHMODBPF_NAME}.pkg")
@@ -87,6 +96,6 @@ function(cu_chmodbpf_add_component)
 		${UNINSTALL_CHMODBPF_GENERATED_PKG}
 	)
 	add_custom_target(uninstall_chmodbpf_pkg ALL DEPENDS "${UNINSTALL_CHMODBPF_GENERATED_PRODUCT}")
-	install(PROGRAMS "${UNINSTALL_CHMODBPF_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}" CONFIGURATIONS Release)
+	install(PROGRAMS "${UNINSTALL_CHMODBPF_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}/${CHMODBPF_NAME}" CONFIGURATIONS Release)
 
-endfunction()
+endmacro()
