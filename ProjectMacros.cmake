@@ -730,6 +730,7 @@ endfunction()
 #  - "SIGN"-> Code sign all binaries
 #  - "BUNDLE_DIR <install directory>" => directory where to install BUNDLE file type (defaults to ".")
 #  - "RUNTIME_DIR <install directory>" => directory where to install RUNTIME file type (defaults to "bin")
+#  - "QT_MAJOR_VERSION <version>" => Qt major version (defaults to 5)
 function(cu_setup_deploy_runtime TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -739,6 +740,9 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 		message(FATAL_ERROR "Unsupported target type for cu_setup_deploy_runtime macro: ${targetType}")
 	endif()
 
+	# Parse optional arguments
+	cmake_parse_arguments(SDR "INSTALL;SIGN" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION" "" ${ARGN})
+
 	# Get signing options
 	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
 
@@ -746,11 +750,14 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	get_property(depSearchDirsDebug GLOBAL PROPERTY CU_DEPLOY_RUNTIME_SEARCH_DIRS_DEBUG)
 	get_property(depSearchDirsOptimized GLOBAL PROPERTY CU_DEPLOY_RUNTIME_SEARCH_DIRS_OPTIMIZED)
 
-	# cmakeUtils deploy runtime
-	cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized})
+	# Get Qt major version
+	set(QT_MAJOR_VERSION 5)
+	if(SDR_QT_MAJOR_VERSION)
+		set(QT_MAJOR_VERSION ${SDR_QT_MAJOR_VERSION})
+	endif()
 
-	# Check for install and sign of the binary itself
-	cmake_parse_arguments(SDR "INSTALL;SIGN" "BUNDLE_DIR;RUNTIME_DIR" "" ${ARGN})
+	# cmakeUtils deploy runtime
+	cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION})
 
 	# Install directories
 	set(BUNDLE_INSTALL_DIR ".")

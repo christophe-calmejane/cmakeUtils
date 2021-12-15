@@ -46,8 +46,8 @@ function(cu_private_target_list_link_libraries TARGET_NAME CLOSEST_RUNTIME_PAREN
 		# Check dependencies
 		foreach(_LIBRARY ${_LIBRARIES})
 			# This is a Qt library
-			if(${_LIBRARY} MATCHES "Qt5::")
-				if(${CLOSEST_RUNTIME_PARENT} MATCHES "Qt5::")
+			if(${_LIBRARY} MATCHES "Qt${QT_MAJOR_VERSION}::")
+				if(${CLOSEST_RUNTIME_PARENT} MATCHES "Qt${QT_MAJOR_VERSION}::")
 					message(FATAL_ERROR "Should not process inside Qt libraries ")
 				endif()
 				# Add closest runtime parent to the list of dependencies to be "qtdeployed"
@@ -83,6 +83,7 @@ endfunction()
 #  - "CODESIGN_IDENTITY <signing identity>" => code signing identity to be used by macOS codesign utility (autodetect will be used if not specified)
 #  - "DEP_SEARCH_DIRS_DEBUG <path>..." => list of additional directories to search for dependencies when building debug binaries
 #  - "DEP_SEARCH_DIRS_OPTIMIZED <path>..." => list of additional directories to search for dependencies when building optimized binaries
+#  - "QT_MAJOR_VERSION <version>" => override default Qt major version (which is 5)
 function(cu_deploy_runtime_target TARGET_NAME)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
@@ -95,10 +96,16 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# We generate a cmake script that will contain all the commands
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${TARGET_NAME}.cmake)
 
-	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
+	# Parse optional arguments
+	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY;QT_MAJOR_VERSION" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
 
-	if (NOT DEPLOY_INSTALL_RELATIVE_PATH)
+	if(NOT DEPLOY_INSTALL_RELATIVE_PATH)
 		set(DEPLOY_INSTALL_RELATIVE_PATH "bin")
+	endif()
+
+	set(QT_MAJOR_VERSION "5")
+	if(DEPLOY_QT_MAJOR_VERSION)
+		set(QT_MAJOR_VERSION ${DEPLOY_QT_MAJOR_VERSION})
 	endif()
 
 	# Init code for both easy-debug and install scripts
@@ -241,11 +248,11 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	if(_QT_DEPENDENCIES_OUTPUT)
 		list(REMOVE_DUPLICATES _QT_DEPENDENCIES_OUTPUT)
 		if(CMAKE_SYSTEM_NAME STREQUAL "Windows" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-			if(NOT TARGET Qt5::qmake)
-				message(FATAL_ERROR "Cannot find Qt5::qmake")
+			if(NOT TARGET Qt${QT_MAJOR_VERSION}::qmake)
+				message(FATAL_ERROR "Cannot find Qt${QT_MAJOR_VERSION}::qmake")
 			endif()
 
-			get_target_property(_QMAKE_LOCATION Qt5::qmake IMPORTED_LOCATION)
+			get_target_property(_QMAKE_LOCATION Qt${QT_MAJOR_VERSION}::qmake IMPORTED_LOCATION)
 			get_filename_component(_DEPLOYQT_DIR ${_QMAKE_LOCATION} DIRECTORY)
 
 			if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
