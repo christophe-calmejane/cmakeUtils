@@ -457,7 +457,12 @@ function(cu_setup_library_options TARGET_NAME)
 
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
-		target_compile_options(${TARGET_NAME} PRIVATE -D_WIN32_WINNT=0x0600)
+		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0600)
+
+		# Force multi-byte character strings
+		if(COMMAND qt6_disable_unicode_defines)
+			qt6_disable_unicode_defines(${TARGET_NAME})
+		endif()
 	endif()
 
 	if(NOT APPLE AND NOT WIN32)
@@ -648,7 +653,12 @@ endfunction()
 function(cu_setup_executable_options TARGET_NAME)
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
-		target_compile_options(${TARGET_NAME} PRIVATE -D_WIN32_WINNT=0x0600)
+		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0600)
+
+		# Force multi-byte character strings
+		if(COMMAND qt6_disable_unicode_defines)
+			qt6_disable_unicode_defines(${TARGET_NAME})
+		endif()
 	endif()
 
 	# Defaults to hidden symbols for Gcc/Clang
