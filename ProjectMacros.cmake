@@ -856,7 +856,7 @@ macro(cu_setup_project_version_variables PRJ_VERSION)
 	# Compute a build number based on version
 	math(EXPR CU_BUILD_NUMBER "${CU_PROJECT_VERSION_MAJOR} * 1000000 + ${CU_PROJECT_VERSION_MINOR} * 1000 + ${CU_PROJECT_VERSION_PATCH}")
 	if(${CU_PROJECT_VERSION_BETA} STREQUAL "0")
-		set(CU_BUILD_NUMBER "${CU_BUILD_NUMBER}.999")
+		set(CU_BUILD_NUMBER "${CU_BUILD_NUMBER}.99999")
 	else()
 		set(CU_BUILD_NUMBER "${CU_BUILD_NUMBER}.${CU_PROJECT_VERSION_BETA}")
 	endif()
