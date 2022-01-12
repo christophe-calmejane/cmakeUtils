@@ -403,7 +403,7 @@ else()
 					--package-path "${CMAKE_BINARY_DIR}"
 					${UNINSTALL_PROJECT_GENERATED_PRODUCT}
 				DEPENDS
-					"${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml"
+					"${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml.in"
 					"${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
 					${UNINSTALL_PROJECT_GENERATED_PKG}
 			)
