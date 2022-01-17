@@ -1,5 +1,37 @@
 # Common Project Macros to help setup a CMake project
 
+# Global variables (will be used by all projects), must be set after a global project() call (no language or version required though) and before including ProjectProperties.cmake
+#  Mandatory variables:
+#   CU_COMPANY_NAME: Name of your company
+#   CU_PROJECT_PRODUCTDESCRIPTION: Short description of your project
+#   CU_PROJECT_STARTING_YEAR: Year of first release
+#   [macOS] CU_TEAM_IDENTIFIER: Team identifier for your company
+#   [macOS] CU_BINARY_SIGNING_IDENTITY: Code signing identity for binaries
+#   [macOS] CU_INSTALLER_SIGNING_IDENTITY: Code signing identity for the installer
+#   [windows] CU_SIGNTOOL_OPTIONS: Signing options for binaries
+#  Optional variables:
+#   CU_PROJECT_FULL_NAME (Defaults to '${PROJECT_NAME}'): Full name of your project
+#   CU_COMPANY_DOMAIN (Defaults to 'com'): Domain name of your company
+#   CU_COMPANY_URL (Defaults to 'https://www.${LOWER:CU_COMPANY_NAME}.${LOWER:CU_COMPANY_DOMAIN}'): URL of your company
+#   CU_PROJECT_URLABOUTINFO (Defaults to '${CU_COMPANY_URL}'): URL of your project
+#   CU_PROJECT_CONTACT (Defautls to '${LOWER:PROJECT_NAME}@${LOWER:CU_COMPANY_NAME}.com'): Contact email of your project
+#   CU_COPYRIGHT_HOLDER (Defaults to '${CU_COMPANY_NAME}'): Copyright holder of your project
+#   CU_BETA_TAG (Defaults to '-beta'): Tag to append to the version number to indicate a beta version
+
+# cu_setup_project method
+#  This method is used to setup a project that can contain one or more targets. Some variables can be overridden before the call, otherwise the global variables are used.
+#  Mandatory variables:
+#   3rd argument to cu_setup_project: Overrides CU_PROJECT_PRODUCTDESCRIPTION
+#  Optional variables:
+#   CU_PROJECT_COMPANYNAME (Defaults to '${CU_COMPANY_NAME}'): Company name to use just for this project
+#   CU_PROJECT_LEGALCOPYRIGHT (Defaults to '${CU_COPYRIGHT_HOLDER}'): Legal copyright holder to use just for this project
+#   CU_PROJECT_READABLE_COPYRIGHT (Defaults to 'Copyright ${CU_PROJECT_STARTING_YEAR}-${CU_YEAR}, ${CU_COPYRIGHT_HOLDER}'): Copyright holder to use just for this project
+
+# cu_setup_executable_options method
+#  This method is used to setup the options for an executable target. Some variables can be overridden before the call, otherwise the global variables are used.
+#  Optional variables:
+#   CU_TARGET_BUNDLE_IDENTIFIER (Defaults to '${CU_REVERSE_DOMAIN_NAME}.\${TARGET_NAME}'): Bundle identifier for the executable
+
 # Set this variable before the include guard so it's always correctly defined for the current repository
 set(CU_ROOT_DIR "${PROJECT_SOURCE_DIR}") # Folder containing the main CMakeLists.txt for the current repository including this file
 
@@ -622,31 +654,36 @@ endfunction()
 # Setup macOS bundle information
 # Applies on a target, must be called after target has been defined with
 # 'add_executable'.
-function(cu_setup_bundle_information TARGET_NAME)
+macro(cu_setup_bundle_information TARGET_NAME)
 	if(APPLE)
 		cu_is_macos_bundle(${TARGET_NAME} isBundle)
 		if(${isBundle})
-			if(NOT CU_TARGET_BUNDLEIDENTIFIER)
-				if(DEFINED CU_PROJECT_BUNDLEIDENTIFIER)
-					set(CU_TARGET_BUNDLEIDENTIFIER "${CU_PROJECT_BUNDLEIDENTIFIER}")
-					message(STATUS "CU_TARGET_BUNDLEIDENTIFIER not set, using CU_PROJECT_BUNDLEIDENTIFIER value: ${CU_PROJECT_BUNDLEIDENTIFIER}")
-				else()
-					set(CU_TARGET_BUNDLEIDENTIFIER "${CU_REVERSE_DOMAIN_NAME}.${TARGET_NAME}")
-					message(STATUS "CU_TARGET_BUNDLEIDENTIFIER not set, using default value: ${CU_TARGET_BUNDLEIDENTIFIER}")
-				endif()
+			if(NOT CU_TARGET_BUNDLE_IDENTIFIER)
+				# We want to use the Marketing Version as part of the bundle identifier name because we want this to be a different binary than another marketing version.
+				# This is because of how macOS indexes files in spotlight, which would prevent installation of the same binary with different marketing versions (same name).
+				set(CU_PROJECT_BUNDLEIDENTIFIER "${CU_REVERSE_DOMAIN_NAME}.${TARGET_NAME}${CU_PROJECT_MARKETING_VERSION}")
+			else()
+				set(CU_PROJECT_BUNDLEIDENTIFIER "${CU_TARGET_BUNDLE_IDENTIFIER}")
+				message(STATUS "Overriding default bundle identifier for ${TARGET_NAME} with ${CU_PROJECT_BUNDLEIDENTIFIER}")
+			endif()
+
+			# Validate bundle identifier (can contains only alphanumeric characters (A-Z,a-z,0-9), hyphen (-), and period (.))
+			if(NOT "${CU_PROJECT_BUNDLEIDENTIFIER}" MATCHES "^[A-Za-z0-9.-]+$")
+				message(FATAL_ERROR "Invalid bundle identifier (can contains only alphanumeric characters (A-Z,a-z,0-9), hyphen (-), and period (.)): ${CU_PROJECT_BUNDLEIDENTIFIER}")
 			endif()
 
 			set_target_properties(${TARGET_NAME} PROPERTIES
-					XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${CU_TARGET_BUNDLEIDENTIFIER}"
+					XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${CU_PROJECT_BUNDLEIDENTIFIER}"
 					MACOSX_BUNDLE_INFO_STRING "${PROJECT_NAME} version ${CU_PROJECT_FRIENDLY_VERSION} ${CU_PROJECT_READABLE_COPYRIGHT}"
 					MACOSX_BUNDLE_ICON_FILE "AppIcon"
-					MACOSX_BUNDLE_GUI_IDENTIFIER "${CU_TARGET_BUNDLEIDENTIFIER}"
+					MACOSX_BUNDLE_GUI_IDENTIFIER "${CU_PROJECT_BUNDLEIDENTIFIER}"
 					MACOSX_BUNDLE_BUNDLE_NAME "${PROJECT_NAME}"
 					MACOSX_BUNDLE_BUNDLE_VERSION "${CU_BUILD_NUMBER}"
 					MACOSX_BUNDLE_COPYRIGHT "${CU_PROJECT_READABLE_COPYRIGHT}")
 		endif()
+		set(CU_PROJECT_BUNDLEIDENTIFIER "${CU_PROJECT_BUNDLEIDENTIFIER}" PARENT_SCOPE)
 	endif()
-endfunction()
+endmacro()
 
 ###############################################################################
 # Setup common options for an executable target.
@@ -791,15 +828,34 @@ endfunction()
 ###############################################################################
 # Setup common variables for a C/CXX project
 macro(cu_setup_project PRJ_NAME PRJ_VERSION PRJ_DESC)
+	message(STATUS "Defining project ${PRJ_NAME}")
 	project(${PRJ_NAME} LANGUAGES C CXX VERSION ${PRJ_VERSION})
-	set(CU_PROJECT_PRODUCTDESCRIPTION ${PRJ_DESC})
-
+	set(CU_PROJECT_PRODUCTDESCRIPTION ${PRJ_DESC}) # Immediately override the default product description
 	cu_setup_project_version_variables(${PRJ_VERSION})
 endmacro()
 
 ###############################################################################
 # Define many variables based on project version
 macro(cu_setup_project_version_variables PRJ_VERSION)
+	# Define some project properties
+	if(NOT CU_PROJECT_COMPANYNAME)
+		set(CU_PROJECT_COMPANYNAME "${CU_COMPANY_NAME}")
+		message(STATUS "CU_PROJECT_COMPANYNAME not set, using default value: ${CU_PROJECT_COMPANYNAME}")
+	endif()
+	if(NOT CU_PROJECT_LEGALCOPYRIGHT)
+		set(CU_PROJECT_LEGALCOPYRIGHT "(c) ${CU_COPYRIGHT_HOLDER}")
+		message(STATUS "CU_PROJECT_LEGALCOPYRIGHT not set, using default value: ${CU_PROJECT_LEGALCOPYRIGHT}")
+	endif()
+	if(NOT CU_PROJECT_READABLE_COPYRIGHT)
+		string(TIMESTAMP CU_YEAR %Y)
+		if(${CU_YEAR} STREQUAL ${CU_PROJECT_STARTING_YEAR})
+			set(CU_PROJECT_READABLE_COPYRIGHT "Copyright ${CU_YEAR}, ${CU_COPYRIGHT_HOLDER}")
+		else()
+			set(CU_PROJECT_READABLE_COPYRIGHT "Copyright ${CU_PROJECT_STARTING_YEAR}-${CU_YEAR}, ${CU_COPYRIGHT_HOLDER}")
+		endif()
+		message(STATUS "CU_PROJECT_READABLE_COPYRIGHT not set, using default value: ${CU_PROJECT_READABLE_COPYRIGHT}")
+	endif()
+
 	# Split PRJ_VERSION string
 	string(REGEX MATCHALL "([0-9]+)" CU_PROJECT_VERSION_SPLIT "${PRJ_VERSION}")
 	list(LENGTH CU_PROJECT_VERSION_SPLIT CU_PROJECT_VERSION_SPLIT_LENGTH)
@@ -837,6 +893,7 @@ macro(cu_setup_project_version_variables PRJ_VERSION)
 	# Compute Marketing Version String (Visible)
 	if(NOT DEFINED MARKETING_VERSION_DIGITS)
 		set(MARKETING_VERSION_DIGITS 2)
+		message(STATUS "MARKETING_VERSION_DIGITS not set, using default value: ${MARKETING_VERSION_DIGITS} digits")
 	endif()
 	set(CU_PROJECT_MARKETING_VERSION "")
 	if(${MARKETING_VERSION_DIGITS} GREATER 0)
