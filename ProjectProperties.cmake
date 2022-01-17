@@ -68,5 +68,5 @@ else()
 endif()
 
 if(DEFINED CU_PROJECT_BUNDLEIDENTIFIER)
-	message(FATAL_ERROR "Variable CU_PROJECT_BUNDLEIDENTIFIER is deprecated (internal use only). Use CU_TARGET_BUNDLE_IDENTIFIER before calling cu_setup_executable_options if you want to override the dafault value (Which is '${CU_REVERSE_DOMAIN_NAME}.\${TARGET_NAME}').")
+	message(FATAL_ERROR "Variable CU_PROJECT_BUNDLEIDENTIFIER is deprecated (internal use only). Use CU_TARGET_BUNDLE_IDENTIFIER before calling cu_setup_executable_options if you want to override the default value (Which is '${CU_REVERSE_DOMAIN_NAME}.\${TARGET_NAME}').")
 endif()
