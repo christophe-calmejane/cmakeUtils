@@ -7,7 +7,7 @@
 # - The access_bpf group
 #
 
-CHMOD_BPF_PLIST="/Library/LaunchDaemons/@CU_COMPANY_DOMAIN@.@CU_PROJECT_COMPANYNAME@.@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@.ChmodBPF.plist"
+CHMOD_BPF_PLIST="@LAUNCH_DAEMON_CHMODBPF_PLIST@"
 BPF_GROUP="access_bpf"
 
 launchctl unload -F "$CHMOD_BPF_PLIST"
@@ -15,8 +15,8 @@ launchctl unload -F "$CHMOD_BPF_PLIST"
 dscl . -read /Groups/"$BPF_GROUP" > /dev/null 2>&1 && \
     dseditgroup -q -o delete "$BPF_GROUP"
 
-rm -rf "/Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@/@CHMODBPF_NAME@"
-
 rm -f "$CHMOD_BPF_PLIST"
 
-pkgutil --forget "@CU_COMPANY_DOMAIN@.@CU_PROJECT_COMPANYNAME@.@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@.ChmodBPF.pkg"
+rm -rf "@APP_SUPPORT_CHMODBPF_FOLDER@"
+
+pkgutil --forget "@CHMODBPF_PKG_ID@"

@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>@CU_COMPANY_DOMAIN@.@CU_PROJECT_COMPANYNAME@.@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@.ChmodBPF</string>
+	<string>@CHMODBPF_ID@</string>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>Program</key>
-	<string>/Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@/ChmodBPF/ChmodBPF</string>
+	<string>@APP_SUPPORT_CHMODBPF_SCRIPT@</string>
 </dict>
 </plist>
