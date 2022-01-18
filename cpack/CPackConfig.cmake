@@ -370,20 +370,19 @@ else()
 
 			string(REGEX REPLACE "([][+.*()^])" "\\\\\\1" ESCAPED_IDENTITY "${CU_INSTALLER_SIGNING_IDENTITY}")
 
-			# Create uninstall package
-			configure_file(
-				"${CU_CPACK_FOLDER}/productbuild/uninstaller/postinstall.in"
-				"${CMAKE_BINARY_DIR}/uninstaller/install-scripts/postinstall"
-			)
-			configure_file(
-				"${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml.in"
-				"${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
-			)
+			# Define some variables required for configure_file and custom_command
+			set(CU_PACKAGE_BASE_ID "${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CPACK_PACKAGE_NAME}")
+			set(MAIN_COMPONENT_ID "${CU_PACKAGE_BASE_ID}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}")
+			set(MAIN_COMPONENT_UNINSTALLER_ID "${MAIN_COMPONENT_ID}.uninstaller")
+			set(MAIN_COMPONENT_UNINSTALLER_PKG_ID "${MAIN_COMPONENT_ID}.uninstaller.pkg")
+			set(APP_SUPPORT_FOLDER "/Library/Application Support/${CU_PROJECT_COMPANYNAME}/${CPACK_PACKAGE_NAME}")
 
+			# Create uninstall package
 			set(UNINSTALL_PROJECT_GENERATED_PKG "${CMAKE_BINARY_DIR}/uninstaller.pkg")
+			configure_file("${CU_CPACK_FOLDER}/productbuild/uninstaller/postinstall.in"	"${CMAKE_BINARY_DIR}/uninstaller/install-scripts/postinstall" @ONLY)
 			add_custom_command(OUTPUT "${UNINSTALL_PROJECT_GENERATED_PKG}"
 				COMMAND pkgbuild
-					--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.uninstaller.pkg
+					--identifier ${MAIN_COMPONENT_UNINSTALLER_PKG_ID}
 					--version 1.0
 					--nopayload
 					--sign ${ESCAPED_IDENTITY}
@@ -394,9 +393,10 @@ else()
 					"${CMAKE_BINARY_DIR}/uninstaller/install-scripts/postinstall"
 			)
 			set(UNINSTALL_PROJECT_GENERATED_PRODUCT "${CMAKE_BINARY_DIR}/Uninstall ${CPACK_PACKAGE_NAME}.pkg")
+			configure_file("${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml.in" "${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml" @ONLY)
 			add_custom_command(OUTPUT "${UNINSTALL_PROJECT_GENERATED_PRODUCT}"
 				COMMAND productbuild
-					--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.uninstaller.product
+					--identifier ${MAIN_COMPONENT_UNINSTALLER_ID}.product
 					--version 1.0
 					--sign ${ESCAPED_IDENTITY}
 					--distribution "${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"

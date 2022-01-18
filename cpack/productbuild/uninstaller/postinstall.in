@@ -4,5 +4,10 @@
 # Remove App and associated files.
 #
 
+packageBaseID="@CU_PACKAGE_BASE_ID@"
+mainComponentName="@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@"
+appSupportFolder="@APP_SUPPORT_FOLDER@"
+mainComponentPkgID="${packageBaseID}.${mainComponentName}"
+
 rm -rf "/Applications/@MACOS_INSTALL_FOLDER@"
-pkgutil --forget "${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.@CPACK_PACKAGE_NAME@.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}"
+pkgutil --forget "$mainComponentPkgID"
