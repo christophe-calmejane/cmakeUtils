@@ -9,5 +9,55 @@ mainComponentName="@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@"
 appSupportFolder="@APP_SUPPORT_FOLDER@"
 mainComponentPkgID="${packageBaseID}.${mainComponentName}"
 
-rm -rf "/Applications/@MACOS_INSTALL_FOLDER@"
-pkgutil --forget "$mainComponentPkgID"
+function removePackage()
+{
+	local package="$1"
+
+	local domainPath="$(pkgutil --info "${package}" | grep "^volume:")"
+	domainPath="${domainPath/volume: /}"
+	local packageName="${package/${packageBaseID}./}"
+	local uninstaller="${appSupportFolder}/${packageName}/uninstall.sh"
+
+	if [ -f "${uninstaller}" ]; then
+			"${uninstaller}" "${package}"
+	else
+			local listingTempFileName="/tmp/${mainComponentPkgID}_listing.txt"
+
+			# List all files/directories in the package (in reverse order they were created), remove them
+			pkgutil --files "${package}" | sort -r > "${listingTempFileName}"
+			while read -r file; do
+				local entryPath="${domainPath}/${file}"
+				# If it is a file or a symlink
+				if [ -f "${entryPath}" ] || [ -L "${entryPath}" ]; then
+					rm -f "${entryPath}"
+				else
+					rmdir "${entryPath}"
+				fi
+			done < "${listingTempFileName}"
+
+			# Remove the package listing
+			rm -f "${listingTempFileName}"
+
+			# Remove the package
+			pkgutil --forget "${package}"
+	fi
+}
+
+# Get list of sub packages matching packageBaseID
+# We have to store to a file because sh (not bash) does behave well when we have to split an output that contains spaces and newlines
+pkgTempFileName="/tmp/${mainComponentPkgID}_subPackages.txt"
+pkgutil --pkgs | grep "^${packageBaseID}" > "${pkgTempFileName}"
+
+# Process each sub package except the main component
+while read package; do
+	# Ignore main component
+	if [ "$package" != "$mainComponentPkgID" ]; then
+		removePackage "${package}"
+	fi
+done < "${pkgTempFileName}"
+
+# Remove the temp file
+rm -f "${pkgTempFileName}"
+
+# Process the main package
+removePackage "${mainComponentPkgID}"
