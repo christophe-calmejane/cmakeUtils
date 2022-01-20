@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# Fix up ownership and permissions on /Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@;
+# Fix up ownership and permissions on @APP_SUPPORT_FOLDER@;
 # for some reason, it's not being owned by root:wheel, and it's not
 # publicly readable and, for directories and executables, not publicly
 # searchable/executable.
@@ -11,13 +11,26 @@
 # XXX - that may be a problem with the process of building the installer
 # package; if so, that's where it *should* be fixed.
 #
-chown -R root:wheel "/Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@"
-chmod -R a+rX,go-w "/Library/Application Support/@CU_PROJECT_COMPANYNAME@/@PROJECT_NAME@"
 
-CHMOD_BPF_PLIST="/Library/LaunchDaemons/@CU_COMPANY_DOMAIN@.@CU_PROJECT_COMPANYNAME@.@CMAKE_INSTALL_DEFAULT_COMPONENT_NAME@.ChmodBPF.plist"
+APP_SUPPORT_PATH="@APP_SUPPORT_FOLDER@"
+
+if [ ! -d "$APP_SUPPORT_PATH" ]; then
+   echo "Error: $APP_SUPPORT_PATH does not exist"
+   exit 1
+fi
+
+chown -R root:wheel "$APP_SUPPORT_PATH"
+chmod -R a+rX,go-w "$APP_SUPPORT_PATH"
+
+CHMOD_BPF_PLIST="@LAUNCH_DAEMON_CHMODBPF_PLIST@"
 BPF_GROUP="access_bpf"
 BPF_GROUP_NAME="BPF device access ACL"
 min_gid=100
+
+if [ ! -f "$CHMOD_BPF_PLIST" ]; then
+   echo "Error: $CHMOD_BPF_PLIST does not exist"
+   exit 1
+fi
 
 if ! dscl . -read /Groups/"$BPF_GROUP" > /dev/null 2>&1; then
    free_gid=$(dscl . -list /Groups PrimaryGroupID | sort -bnk2 | awk -v min_gid=$min_gid 'BEGIN{i=min_gid}{if($2==i)i++}END{print i}')

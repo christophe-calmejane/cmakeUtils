@@ -1,4 +1,4 @@
 #!/bin/sh
 
-installerPath="$2/Applications/@MACOS_INSTALL_FOLDER@/ChmodBPF/Install ChmodBPF.pkg"
+installerPath="$2/Applications/@MACOS_INSTALL_FOLDER@/@CHMODBPF_NAME@/Install @CHMODBPF_NAME@.pkg"
 installer -pkg "$installerPath" -target /

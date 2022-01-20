@@ -18,29 +18,37 @@ macro(cu_chmodbpf_extra_commands)
 endmacro()
 
 macro(cu_chmodbpf_add_component)
-	# Build ChmodBPF PKG tree
-	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/auto-install.sh.in" "${CU_CHMODBPF_PKG_OUT_DIR}/auto-install.sh")
-	# configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/auto-uninstall.sh.in" "${CU_CHMODBPF_PKG_OUT_DIR}/auto-uninstall.sh") # Currently not being used. Designed to be called by the uninstaller, but requires some modifications in the uninstall script to call this one somehow.
-	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/install-distribution.xml.in" "${CU_CHMODBPF_PKG_OUT_DIR}/install-distribution.xml")
-	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/uninstall-distribution.xml.in" "${CU_CHMODBPF_PKG_OUT_DIR}/uninstall-distribution.xml")
-	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/install-scripts/postinstall.in" "${CU_CHMODBPF_PKG_OUT_DIR}/install-scripts/postinstall")
-	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/uninstall-scripts/postinstall.in" "${CU_CHMODBPF_PKG_OUT_DIR}/uninstall-scripts/postinstall")
-	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/${CHMODBPF_NAME}.plist.in" "${CU_CHMODBPF_PKG_OUT_DIR}/root/Library/LaunchDaemons/${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.${CHMODBPF_NAME}.plist")
-	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/${CHMODBPF_NAME}" "${CU_CHMODBPF_PKG_OUT_DIR}/root/Library/Application Support/${CU_PROJECT_COMPANYNAME}/${PROJECT_NAME}/${CHMODBPF_NAME}/${CHMODBPF_NAME}" COPYONLY)
+	# Define some variables required for configure_file and custom_command
+	set(CHMODBPF_ID "${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CPACK_PACKAGE_NAME}.${CHMODBPF_NAME}")
+	set(CHMODBPF_PKG_ID "${CHMODBPF_ID}.pkg")
+	set(CHMODBPF_UNINSTALLER_ID "${CHMODBPF_ID}.uninstaller")
+	set(CHMODBPF_UNINSTALLER_PKG_ID "${CHMODBPF_ID}.uninstaller.pkg")
+	set(LAUNCH_DAEMON_CHMODBPF_PLIST "/Library/LaunchDaemons/${CHMODBPF_ID}.plist")
+	set(APP_SUPPORT_FOLDER "/Library/Application Support/${CU_PROJECT_COMPANYNAME}/${CPACK_PACKAGE_NAME}")
+	set(APP_SUPPORT_CHMODBPF_FOLDER "${APP_SUPPORT_FOLDER}/${CHMODBPF_NAME}")
+	set(APP_SUPPORT_CHMODBPF_SCRIPT "${APP_SUPPORT_CHMODBPF_FOLDER}/${CHMODBPF_NAME}")
+	set(APP_SUPPORT_CHMODBPF_UNINSTALL_FOLDER "${APP_SUPPORT_FOLDER}/${CHMODBPF_NAME}.pkg")
+	set(APP_SUPPORT_CHMODBPF_UNINSTALL_SCRIPT "${APP_SUPPORT_CHMODBPF_UNINSTALL_FOLDER}/uninstall.sh")
 
 	# Create ChmodBPF install package
 	set(INSTALL_CHMODBPF_GENERATED_PKG "${CMAKE_BINARY_DIR}/install.${CHMODBPF_NAME}.pkg")
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/install-scripts/postinstall.in" "${CU_CHMODBPF_PKG_OUT_DIR}/install-scripts/postinstall" @ONLY)
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/${CHMODBPF_NAME}.plist.in" "${CU_CHMODBPF_PKG_OUT_DIR}/root${LAUNCH_DAEMON_CHMODBPF_PLIST}" @ONLY)
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/${CHMODBPF_NAME}" "${CU_CHMODBPF_PKG_OUT_DIR}/root${APP_SUPPORT_CHMODBPF_SCRIPT}" COPYONLY)
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/uninstall-scripts/postinstall.in" "${CU_CHMODBPF_PKG_OUT_DIR}/root${APP_SUPPORT_CHMODBPF_UNINSTALL_SCRIPT}" @ONLY)
 	add_custom_command(OUTPUT "${INSTALL_CHMODBPF_GENERATED_PKG}"
 		COMMAND find
 			"${CU_CHMODBPF_PKG_OUT_DIR}/root"
 			-type d
 			-exec chmod 755 "{}" +
 		COMMAND chmod 644
-			"${CU_CHMODBPF_PKG_OUT_DIR}/root/Library/LaunchDaemons/${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.${CHMODBPF_NAME}.plist"
+			"${CU_CHMODBPF_PKG_OUT_DIR}/root${LAUNCH_DAEMON_CHMODBPF_PLIST}"
 		COMMAND chmod 755
-			"${CU_CHMODBPF_PKG_OUT_DIR}/root/Library/Application Support/${CU_PROJECT_COMPANYNAME}/${PROJECT_NAME}/${CHMODBPF_NAME}/${CHMODBPF_NAME}"
+			"${CU_CHMODBPF_PKG_OUT_DIR}/root${APP_SUPPORT_CHMODBPF_SCRIPT}"
+		COMMAND chmod 755
+			"${CU_CHMODBPF_PKG_OUT_DIR}/root${APP_SUPPORT_CHMODBPF_UNINSTALL_SCRIPT}"
 		COMMAND pkgbuild
-			--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.${CHMODBPF_NAME}.pkg
+			--identifier ${CHMODBPF_PKG_ID}
 			--version 1.1
 			--preserve-xattr
 			--root "${CU_CHMODBPF_PKG_OUT_DIR}/root"
@@ -48,14 +56,16 @@ macro(cu_chmodbpf_add_component)
 			--scripts "${CU_CHMODBPF_PKG_OUT_DIR}/install-scripts"
 			${INSTALL_CHMODBPF_GENERATED_PKG}
 		DEPENDS
-			"${CU_CHMODBPF_PKG_OUT_DIR}/root/Library/Application Support/${CU_PROJECT_COMPANYNAME}/${PROJECT_NAME}/${CHMODBPF_NAME}/${CHMODBPF_NAME}"
-			"${CU_CHMODBPF_PKG_OUT_DIR}/root/Library/LaunchDaemons/${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.${CHMODBPF_NAME}.plist"
+			"${CU_CHMODBPF_PKG_OUT_DIR}/root${APP_SUPPORT_CHMODBPF_SCRIPT}"
+			"${CU_CHMODBPF_PKG_OUT_DIR}/root${LAUNCH_DAEMON_CHMODBPF_PLIST}"
+			"${CU_CHMODBPF_PKG_OUT_DIR}/root${APP_SUPPORT_CHMODBPF_UNINSTALL_SCRIPT}"
 			"${CU_CHMODBPF_PKG_OUT_DIR}/install-scripts/postinstall"
 	)
 	set(INSTALL_CHMODBPF_GENERATED_PRODUCT "${CMAKE_BINARY_DIR}/Install ${CHMODBPF_NAME}.pkg")
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/install-distribution.xml.in" "${CU_CHMODBPF_PKG_OUT_DIR}/install-distribution.xml" @ONLY)
 	add_custom_command(OUTPUT "${INSTALL_CHMODBPF_GENERATED_PRODUCT}"
 		COMMAND productbuild
-		--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.${CHMODBPF_NAME}.product
+		--identifier ${CHMODBPF_ID}.product
 		--version 1.1
 		--sign ${ESCAPED_IDENTITY}
 		--distribution "${CU_CHMODBPF_PKG_OUT_DIR}/install-distribution.xml"
@@ -67,13 +77,13 @@ macro(cu_chmodbpf_add_component)
 	)
 	add_custom_target(install_chmodbpf_pkg ALL DEPENDS "${INSTALL_CHMODBPF_GENERATED_PRODUCT}")
 	install(PROGRAMS "${INSTALL_CHMODBPF_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}/${CHMODBPF_NAME}" CONFIGURATIONS Release COMPONENT ${CHMODBPF_NAME})
-	cpack_add_component(${CHMODBPF_NAME} DISPLAY_NAME "Chmod BPF" DESCRIPTION "This package will install the ChmodBPF launch daemon, create the access_bpf group, and add you to that group." REQUIRED HIDDEN)
 
 	# Create ChmodBPF uninstall package
 	set(UNINSTALL_CHMODBPF_GENERATED_PKG "${CMAKE_BINARY_DIR}/uninstall.${CHMODBPF_NAME}.pkg")
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/uninstall-scripts/postinstall.in" "${CU_CHMODBPF_PKG_OUT_DIR}/uninstall-scripts/postinstall" @ONLY)
 	add_custom_command(OUTPUT "${UNINSTALL_CHMODBPF_GENERATED_PKG}"
 		COMMAND pkgbuild
-			--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.${CHMODBPF_NAME}.pkg
+			--identifier ${CHMODBPF_UNINSTALLER_PKG_ID}
 			--version 1.1
 			--nopayload
 			--sign ${ESCAPED_IDENTITY}
@@ -83,9 +93,10 @@ macro(cu_chmodbpf_add_component)
 			"${CU_CHMODBPF_PKG_OUT_DIR}/uninstall-scripts/postinstall"
 	)
 	set(UNINSTALL_CHMODBPF_GENERATED_PRODUCT "${CMAKE_BINARY_DIR}/Uninstall ${CHMODBPF_NAME}.pkg")
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/uninstall-distribution.xml.in" "${CU_CHMODBPF_PKG_OUT_DIR}/uninstall-distribution.xml" @ONLY)
 	add_custom_command(OUTPUT "${UNINSTALL_CHMODBPF_GENERATED_PRODUCT}"
 		COMMAND productbuild
-		--identifier ${CU_COMPANY_DOMAIN}.${CU_PROJECT_COMPANYNAME}.${CMAKE_INSTALL_DEFAULT_COMPONENT_NAME}.${CHMODBPF_NAME}.product
+		--identifier ${CHMODBPF_UNINSTALLER_ID}.product
 		--version 1.1
 		--sign ${ESCAPED_IDENTITY}
 		--distribution "${CU_CHMODBPF_PKG_OUT_DIR}/uninstall-distribution.xml"
@@ -96,6 +107,12 @@ macro(cu_chmodbpf_add_component)
 		${UNINSTALL_CHMODBPF_GENERATED_PKG}
 	)
 	add_custom_target(uninstall_chmodbpf_pkg ALL DEPENDS "${UNINSTALL_CHMODBPF_GENERATED_PRODUCT}")
-	install(PROGRAMS "${UNINSTALL_CHMODBPF_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}/${CHMODBPF_NAME}" CONFIGURATIONS Release)
+	install(PROGRAMS "${UNINSTALL_CHMODBPF_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}/${CHMODBPF_NAME}" CONFIGURATIONS Release COMPONENT ${CHMODBPF_NAME})
 
+	# Add a CPack component for the ChmodBPF packages
+	cpack_add_component(${CHMODBPF_NAME} DISPLAY_NAME "Chmod BPF" DESCRIPTION "This package will install the ChmodBPF launch daemon, create the access_bpf group, and add you to that group.")
+
+	# Configure other files required by cu_chmodbpf_extra_commands
+	configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/auto-install.sh.in" "${CU_CHMODBPF_PKG_OUT_DIR}/auto-install.sh" @ONLY)
+	# configure_file("${CU_CHMODBPF_PKG_SRC_DIR}/auto-uninstall.sh.in" "${CU_CHMODBPF_PKG_OUT_DIR}/auto-uninstall.sh" @ONLY) # Currently not being used. Designed to be called by the uninstaller, but requires some modifications in the uninstall script to call this one somehow.
 endmacro()
