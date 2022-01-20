@@ -12,11 +12,12 @@ BPF_GROUP="access_bpf"
 
 launchctl unload -F "$CHMOD_BPF_PLIST"
 
-dscl . -read /Groups/"$BPF_GROUP" > /dev/null 2>&1 && \
-    dseditgroup -q -o delete "$BPF_GROUP"
+# We actually want to keep the group around as other users or programs may still be using it.
+# dscl . -read /Groups/"$BPF_GROUP" > /dev/null 2>&1 && dseditgroup -q -o delete "$BPF_GROUP"
 
 rm -f "$CHMOD_BPF_PLIST"
 
 rm -rf "@APP_SUPPORT_CHMODBPF_FOLDER@"
+rm -rf "@APP_SUPPORT_CHMODBPF_UNINSTALL_FOLDER@"
 
 pkgutil --forget "@CHMODBPF_PKG_ID@"
