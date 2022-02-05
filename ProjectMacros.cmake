@@ -844,14 +844,38 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 endfunction()
 
 ###############################################################################
+# Internal macro
+macro(_cu_list_targets TARGET_NAME TARGET_LIST)
+	get_target_property(libs ${TARGET_NAME} LINK_LIBRARIES)
+	if(libs)
+		foreach(lib ${libs})
+			if(TARGET ${lib} AND NOT ${lib} IN_LIST ${TARGET_LIST})
+				list(APPEND ${TARGET_LIST} ${lib})
+				_cu_list_targets(${lib} ${TARGET_LIST})
+			endif()
+		endforeach()
+	endif()
+	get_target_property(libs ${TARGET_NAME} INTERFACE_LINK_LIBRARIES)
+	if(libs)
+		foreach(lib ${libs})
+			if(TARGET ${lib} AND NOT ${lib} IN_LIST ${TARGET_LIST})
+				list(APPEND ${TARGET_LIST} ${lib})
+				_cu_list_targets(${lib} ${TARGET_LIST})
+			endif()
+		endforeach()
+	endif()
+endmacro()
+
+###############################################################################
 # Macro to be called as the last cmake command from the main cmake file
 macro(cu_finalize)
 	# Allow generator expressions in install(CODE/SCRIPT)
 	cmake_policy(SET CMP0087 NEW)
 
-	# Write the launch.json file for vscode
+	# Write vscode files
 	get_property(targetsList GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS)
 	if(targetsList)
+		# Write launch.json
 		set(VS_LAUNCH_FILE "${CMAKE_BINARY_DIR}/.vscode/launch.json")
 		# File header
 		set(VS_LAUNCH_FILE_CONTENT "{\n\t\"version\": \"0.2.0\",\n\t\"configurations\": [")
@@ -883,9 +907,108 @@ macro(cu_finalize)
 		endforeach()
 		# Write postfix
 		string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t]\n}\n")
-
 		# Write file only for Debug configuration
 		file(GENERATE OUTPUT "${VS_LAUNCH_FILE}" CONTENT "${VS_LAUNCH_FILE_CONTENT}" CONDITION "$<CONFIG:Debug>")
+
+		# Write c_cpp_properties.json
+		set(VS_C_CPP_PROPERTIES_FILE "${CMAKE_BINARY_DIR}/.vscode/c_cpp_properties.json")
+		# File header
+		if(${CMAKE_BUILD_TYPE})
+			set(CONFIG_NAME "${CMAKE_PROJECT_NAME} ${CMAKE_BUILD_TYPE}")
+		else()
+			set(CONFIG_NAME "${CMAKE_PROJECT_NAME}")
+		endif()
+		set(VS_C_CPP_PROPERTIES_FILE_CONTENT "{\n\t\"configurations\": [\n\t\t{\n\t\t\t\"name\": \"${CONFIG_NAME}\",")
+		# Get a list of all targets (including transitive)
+		set(allTargetsList "")
+		foreach(tarInfo ${targetsList})
+			string(REPLACE "#" ";" tarInfo "${tarInfo}")
+			list(GET tarInfo 0 tar)
+			_cu_list_targets(${tar} allTargetsList)
+		endforeach()
+		# Get include paths and defines from all targets
+		set(INCLUDE_PATHS_LIST "")
+		set(DEFINES_LIST "")
+		foreach(tar ${allTargetsList})
+			# Get include paths from target properties
+			get_target_property(includePaths ${tar} INCLUDE_DIRECTORIES)
+			if(includePaths)
+				foreach(includePath ${includePaths})
+					list(APPEND INCLUDE_PATHS_LIST "${includePath}")
+				endforeach()
+			endif()
+			get_target_property(interfaceIncludePaths ${tar} INTERFACE_INCLUDE_DIRECTORIES)
+			if(interfaceIncludePaths)
+				foreach(includePath ${interfaceIncludePaths})
+					list(APPEND INCLUDE_PATHS_LIST "${includePath}")
+				endforeach()
+			endif()
+			# Get defines from target properties
+			get_target_property(defines ${tar} COMPILE_DEFINITIONS)
+			if(defines)
+				foreach(define ${defines})
+					list(APPEND DEFINES_LIST "${define}")
+				endforeach()
+			endif()
+			get_target_property(interfaceDefines ${tar} INTERFACE_COMPILE_DEFINITIONS)
+			if(interfaceDefines)
+				foreach(define ${interfaceDefines})
+					list(APPEND DEFINES_LIST "${define}")
+				endforeach()
+			endif()
+			# TODO: All defines are not listed, I suspect it does list defines added as compilation options using /D
+		endforeach()
+		# Remove duplicates
+		list(REMOVE_DUPLICATES INCLUDE_PATHS_LIST)
+		list(REMOVE_DUPLICATES DEFINES_LIST)
+		# Write include paths
+		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"includePath\": [")
+		set(isFirstTarget TRUE)
+		foreach(includePath ${INCLUDE_PATHS_LIST})
+			# Ignore INSTALL_INTERFACE include paths
+			if("${includePath}" MATCHES "^\\$<INSTALL_INTERFACE")
+				continue()
+			endif()
+			# We must add a comma if it's not the first target
+			if(NOT ${isFirstTarget})
+				string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT ",")
+			endif()
+			set(isFirstTarget FALSE)
+			string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\t\"${includePath}\"")
+		endforeach()
+		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t],")
+		# Write defines
+		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"defines\": [")
+		set(isFirstTarget TRUE)
+		foreach(define ${DEFINES_LIST})
+			# We must add a comma if it's not the first target
+			if(NOT ${isFirstTarget})
+				string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT ",")
+			endif()
+			set(isFirstTarget FALSE)
+			string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\t\"${define}\"")
+		endforeach()
+		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t],")
+		# Write compiler path
+		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"compilerPath\": \"${CMAKE_CXX_COMPILER}\",")
+		# Write c/cpp standard
+		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"cStandard\": \"c${CMAKE_CXX_STANDARD}\",\n\t\t\t\"cppStandard\": \"c++${CMAKE_CXX_STANDARD}\",")
+		if(WIN32)
+			if("${CU_TARGET_ARCH}" STREQUAL "32")
+				set(INTELLISENSE_MODE "windows-msvc-x86")
+			else()
+				set(INTELLISENSE_MODE "windows-msvc-x64")
+			endif()
+		elseif(APPLE)
+			set(INTELLISENSE_MODE "clang-x64")
+		else()
+			set(INTELLISENSE_MODE "gcc-x64")
+		endif()
+		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"intelliSenseMode\": \"${INTELLISENSE_MODE}\"")
+		# Write postfix
+		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t}\n\t],\n\t\"version\": 4\n}")
+		# Write file only for Debug configuration
+		file(GENERATE OUTPUT "${VS_C_CPP_PROPERTIES_FILE}" CONTENT "${VS_C_CPP_PROPERTIES_FILE_CONTENT}" CONDITION "$<CONFIG:Debug>")
 	endif()
 endmacro()
 
