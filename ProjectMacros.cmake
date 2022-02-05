@@ -686,6 +686,21 @@ macro(cu_setup_bundle_information TARGET_NAME)
 endmacro()
 
 ###############################################################################
+# Add target to vscode launch configuration
+function(cu_add_vscode_launch_configuration TARGET_NAME)
+	cu_is_macos_bundle(${TARGET_NAME} isBundle)
+	cu_is_macos_framework(${TARGET_NAME} isFramework)
+	set(USE_BUNDLE_DIR FALSE)
+	if(${isBundle} OR ${isFramework})
+		set(USE_BUNDLE_DIR TRUE)
+	endif()
+	# Add this target to the list of targets to be launched
+	get_property(targetsList GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS)
+	list(APPEND targetsList "${TARGET_NAME}#${CMAKE_CURRENT_BINARY_DIR}#${USE_BUNDLE_DIR}")
+	set_property(GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS ${targetsList})
+endfunction()
+
+###############################################################################
 # Setup common options for an executable target.
 function(cu_setup_executable_options TARGET_NAME)
 	if(MSVC)
@@ -737,6 +752,9 @@ function(cu_setup_executable_options TARGET_NAME)
 
 	# Setup debug symbols
 	cu_setup_symbols(${TARGET_NAME})
+
+	# Add vscode launch configuration
+	cu_add_vscode_launch_configuration(${TARGET_NAME})
 
 	# Set rpath for macOS
 	if(APPLE)
@@ -824,6 +842,52 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 		install(TARGETS ${TARGET_NAME} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
 	endif()
 endfunction()
+
+###############################################################################
+# Macro to be called as the last cmake command from the main cmake file
+macro(cu_finalize)
+	# Allow generator expressions in install(CODE/SCRIPT)
+	cmake_policy(SET CMP0087 NEW)
+
+	# Write the launch.json file for vscode
+	get_property(targetsList GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS)
+	if(targetsList)
+		set(VS_LAUNCH_FILE "${CMAKE_BINARY_DIR}/.vscode/launch.json")
+		# File header
+		set(VS_LAUNCH_FILE_CONTENT "{\n\t\"version\": \"0.2.0\",\n\t\"configurations\": [")
+		# Add each target
+		set(isFirstTarget TRUE)
+		foreach(tarInfo ${targetsList})
+			string(REPLACE "#" ";" tarInfo "${tarInfo}")
+			list(GET tarInfo 0 tar)
+			list(GET tarInfo 1 folder)
+			list(GET tarInfo 2 isBundle)
+			# We must add a comma if it's not the first target
+			if(NOT ${isFirstTarget})
+				string(APPEND VS_LAUNCH_FILE_CONTENT ",")
+			endif()
+			set(isFirstTarget FALSE)
+			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t{\n\t\t\t\"name\": \"Launch $<TARGET_NAME:${tar}>\",\n\t\t\t\"request\": \"launch\",\n\t\t\t\"cwd\": \"${folder}\",\n\t\t\t")
+			if(APPLE)
+				if(${isBundle})
+					string(APPEND VS_LAUNCH_FILE_CONTENT "\"type\": \"cppdbg\",\n\t\t\t\"program\": \"$<TARGET_BUNDLE_DIR:${tar}>\"")
+				else()
+					string(APPEND VS_LAUNCH_FILE_CONTENT "\"type\": \"cppdbg\",\n\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
+				endif()
+			elseif(WIN32)
+				string(APPEND VS_LAUNCH_FILE_CONTENT "\"console\": \"externalTerminal\",\n\t\t\t\"type\": \"cppvsdbg\",\n\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
+			else()
+				string(APPEND VS_LAUNCH_FILE_CONTENT "\"type\": \"cppdbg\",\n\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
+			endif()
+			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t}")
+		endforeach()
+		# Write postfix
+		string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t]\n}\n")
+
+		# Write file only for Debug configuration
+		file(GENERATE OUTPUT "${VS_LAUNCH_FILE}" CONTENT "${VS_LAUNCH_FILE_CONTENT}" CONDITION "$<CONFIG:Debug>")
+	endif()
+endmacro()
 
 ###############################################################################
 # Setup common variables for a C/CXX project
