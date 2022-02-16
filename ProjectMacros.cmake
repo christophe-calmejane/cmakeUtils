@@ -844,7 +844,7 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 endfunction()
 
 ###############################################################################
-# Internal macro
+# Internal macros and functions
 macro(_cu_list_targets TARGET_NAME TARGET_LIST)
 	get_target_property(libs ${TARGET_NAME} LINK_LIBRARIES)
 	if(libs)
@@ -866,6 +866,294 @@ macro(_cu_list_targets TARGET_NAME TARGET_LIST)
 	endif()
 endmacro()
 
+macro(_cu_vscode_append_build_task BUILD_CONFIG TARGET_NAME IS_DEFAULT IS_LAST)
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t{\n")
+
+	if("${TARGET_NAME}" STREQUAL "All")
+		set(TARGET_COMMAND "")
+	else()
+		set(TARGET_COMMAND " --target ${TARGET_NAME}")
+	endif()
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\"label\": \"Build ${TARGET_NAME} [${BUILD_CONFIG}]\",\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\"type\": \"shell\",\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\"command\": \"cmake --build ${CMAKE_BINARY_DIR} --config ${BUILD_CONFIG}${TARGET_COMMAND}\",\n")
+	if(WIN32)
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\"problemMatcher\": [\"\$msCompile\"],\n")
+	endif()
+	if(${IS_DEFAULT})
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\"group\": {\n")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\t\"kind\": \"build\",\n")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\t\"isDefault\": true,\n")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t},\n")
+	else()
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\"group\": \"build\",\n")
+	endif()
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\"presentation\": {\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\t\"reveal\": \"always\",\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\t\"focus\": false,\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\t\"panel\": \"shared\",\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t\t\"clear\": true\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\t}\n")
+
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t}")
+	if(NOT ${IS_LAST})
+		string(APPEND VS_WORKSPACE_FILE_CONTENT ",")
+	endif()
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\n")
+endmacro()
+
+function(_cu_vscode_get_include_paths INCLUDE_PATHS)
+	get_property(targetsList GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS)
+
+	# Get a list of all targets (including transitive)
+	set(allTargetsList "")
+	foreach(tarInfo ${targetsList})
+		string(REPLACE "#" ";" tarInfo "${tarInfo}")
+		list(GET tarInfo 0 tar)
+		_cu_list_targets(${tar} allTargetsList)
+	endforeach()
+	# Get include paths from all targets
+	set(INCLUDE_PATHS_LIST "")
+	foreach(tar ${allTargetsList})
+		# Get include paths from target properties
+		get_target_property(includePaths ${tar} INCLUDE_DIRECTORIES)
+		if(includePaths)
+			foreach(includePath ${includePaths})
+				# Escape quotes
+				string(REPLACE "\"" "\\\"" includePath "${includePath}")
+				list(APPEND INCLUDE_PATHS_LIST "${includePath}")
+			endforeach()
+		endif()
+		get_target_property(interfaceIncludePaths ${tar} INTERFACE_INCLUDE_DIRECTORIES)
+		if(interfaceIncludePaths)
+			foreach(includePath ${interfaceIncludePaths})
+				# Escape quotes
+				string(REPLACE "\"" "\\\"" includePath "${includePath}")
+				list(APPEND INCLUDE_PATHS_LIST "${includePath}")
+			endforeach()
+		endif()
+	endforeach()
+
+	# Remove duplicates
+	list(REMOVE_DUPLICATES INCLUDE_PATHS_LIST)
+
+	# Return the list
+	set(${INCLUDE_PATHS} "${INCLUDE_PATHS_LIST}" PARENT_SCOPE)
+endfunction()
+
+function(_cu_vscode_get_compiler_defines COMPILER_DEFINES)
+	get_property(targetsList GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS)
+
+	# Get a list of all targets (including transitive)
+	set(allTargetsList "")
+	foreach(tarInfo ${targetsList})
+		string(REPLACE "#" ";" tarInfo "${tarInfo}")
+		list(GET tarInfo 0 tar)
+		_cu_list_targets(${tar} allTargetsList)
+	endforeach()
+	# Get defines from all targets
+	set(DEFINES_LIST "")
+	foreach(tar ${allTargetsList})
+		# Get defines from target properties
+		get_target_property(defines ${tar} COMPILE_DEFINITIONS)
+		if(defines)
+			foreach(define ${defines})
+				# Escape quotes
+				string(REPLACE "\"" "\\\"" define "${define}")
+				list(APPEND DEFINES_LIST "${define}")
+			endforeach()
+		endif()
+		get_target_property(interfaceDefines ${tar} INTERFACE_COMPILE_DEFINITIONS)
+		if(interfaceDefines)
+			foreach(define ${interfaceDefines})
+				# Escape quotes
+				string(REPLACE "\"" "\\\"" define "${define}")
+				list(APPEND DEFINES_LIST "${define}")
+			endforeach()
+		endif()
+		# TODO: All defines are not listed, old projects still add them as compilation options using /D
+		# Retrieve all defines from compilation options (COMPILE_OPTIONS and INTERFACE_COMPILE_OPTIONS)
+		# Be careful as some defines use -D and some use /D
+		# Be careful as some defines use generator expression ($<$<CONFIG:Debug>:-DDEBUG>) so we might want to forward as is
+		# TODO: We probably don't want to add defines from all targets globally as some might be mutually exclusive (shared lib vs static lib)
+	endforeach()
+
+	# Remove duplicates
+	list(REMOVE_DUPLICATES DEFINES_LIST)
+
+	# Return the list
+	set(${COMPILER_DEFINES} "${DEFINES_LIST}" PARENT_SCOPE)
+endfunction()
+
+macro(_cu_vscode_append_build_task_target TARGET_NAME IS_DEFAULT IS_LAST)
+	# Multi-config project
+	if(DEFINED CMAKE_CONFIGURATION_TYPES)
+		_cu_vscode_append_build_task("Debug" "${TARGET_NAME}" ${IS_DEFAULT} FALSE)
+		_cu_vscode_append_build_task("Release" "${TARGET_NAME}" FALSE ${IS_LAST})
+	else()
+		# Single-config project
+		_cu_vscode_append_build_task("${CMAKE_BUILD_TYPE}" "${TARGET_NAME}" ${IS_DEFAULT} ${IS_LAST})
+	endif()
+endmacro()
+
+function(_cu_vscode_write_workspace)
+	get_property(targetsList GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS)
+
+	# Multi-config project
+	if(DEFINED CMAKE_CONFIGURATION_TYPES)
+		set(VS_WORKSPACE_GENERATE_CONFIG "Debug")
+	else()
+		# Single-config project
+		set(VS_WORKSPACE_GENERATE_CONFIG "${CMAKE_BUILD_TYPE}")
+	endif()
+
+	## Set workspace file
+	set(VS_WORKSPACE_FILE "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.code-workspace")
+
+	## File header
+	set(VS_WORKSPACE_FILE_CONTENT "{\n")
+
+	## Settings
+	# Prefix
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\"settings\": {\n")
+	# Exclude files
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"files.exclude\": {\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\"**/.git\": true,\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\"**/.vscode\": true,\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\"**/_*\": true,\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\"**/.DS_Store\": true,\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\"**/Thumbs.db\": true\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t},\n")
+	# C_Cpp_Defaults
+	# Merge configuration flag
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"C_Cpp.default.mergeConfigurations\": true,\n")
+	# Write compiler path
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"C_Cpp.default.compilerPath\": \"${CMAKE_CXX_COMPILER}\",\n")
+	# Write c/cpp standard
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"C_Cpp.default.cStandard\": \"c${CMAKE_CXX_STANDARD}\",\n\t\t\"C_Cpp.default.cppStandard\": \"c++${CMAKE_CXX_STANDARD}\",\n")
+	if(WIN32)
+		if("${CU_TARGET_ARCH}" STREQUAL "32")
+			set(INTELLISENSE_MODE "windows-msvc-x86")
+		else()
+			set(INTELLISENSE_MODE "windows-msvc-x64")
+		endif()
+	elseif(APPLE)
+		set(INTELLISENSE_MODE "clang-x64")
+	else()
+		set(INTELLISENSE_MODE "gcc-x64")
+	endif()
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"C_Cpp.default.intelliSenseMode\": \"${INTELLISENSE_MODE}\",\n")
+	# Write include paths
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"C_Cpp.default.includePath\": [")
+	_cu_vscode_get_include_paths(INCLUDE_PATHS_LIST)
+	set(isFirstTarget TRUE)
+	foreach(includePath ${INCLUDE_PATHS_LIST})
+		# Ignore INSTALL_INTERFACE include paths
+		if("${includePath}" MATCHES "^\\$<INSTALL_INTERFACE")
+			continue()
+		endif()
+		# We must add a comma if it's not the first target
+		if(NOT ${isFirstTarget})
+			string(APPEND VS_WORKSPACE_FILE_CONTENT ",")
+		endif()
+		set(isFirstTarget FALSE)
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\"${includePath}\"")
+	endforeach()
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t],\n")
+	# Write defines
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"C_Cpp.default.defines\": [")
+	_cu_vscode_get_compiler_defines(DEFINES_LIST)
+	set(isFirstTarget TRUE)
+	foreach(define ${DEFINES_LIST})
+		# We must add a comma if it's not the first target
+		if(NOT ${isFirstTarget})
+			string(APPEND VS_WORKSPACE_FILE_CONTENT ",")
+		endif()
+		set(isFirstTarget FALSE)
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\"${define}\"")
+	endforeach()
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t]\n")
+	# Postfix
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t},\n")
+
+	## Add folders
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\"folders\": [\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t{\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\"path\": \"..\"\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t},\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t{\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\t\"path\": \".\"\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t}\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t],\n")
+
+	## Add build tasks
+	# Prefix
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\"tasks\": {\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"version\": \"2.0.0\",\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"tasks\": [\n")
+	# Add each target
+	foreach(tarInfo ${targetsList})
+		string(REPLACE "#" ";" tarInfo "${tarInfo}")
+		list(GET tarInfo 0 tar)
+		_cu_vscode_append_build_task_target("${tar}" FALSE FALSE)
+	endforeach()
+	# Add 'install' target
+	_cu_vscode_append_build_task_target("install" FALSE FALSE)
+	# Add 'All' target
+	_cu_vscode_append_build_task_target("All" TRUE TRUE)
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t]\n")
+	# Postfix
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t},\n")
+
+	## Add launch tasks
+	# Prefix
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\"launch\": {\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"version\": \"0.2.0\",\n")
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t\t\"configurations\": [")
+	# Add each target
+	set(isFirstTarget TRUE)
+	foreach(tarInfo ${targetsList})
+		string(REPLACE "#" ";" tarInfo "${tarInfo}")
+		list(GET tarInfo 0 tar)
+		list(GET tarInfo 1 folder)
+		list(GET tarInfo 2 isBundle)
+		# We must add a comma if it's not the first target
+		if(NOT ${isFirstTarget})
+			string(APPEND VS_WORKSPACE_FILE_CONTENT ",")
+		endif()
+		set(isFirstTarget FALSE)
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t{")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"name\": \"$<TARGET_NAME:${tar}>\",")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"request\": \"launch\",")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"preLaunchTask\": \"Build ${tar} [${VS_WORKSPACE_GENERATE_CONFIG}]\",")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"cwd\": \"${folder}\",")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"args\": [],")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"stopAtEntry\": false,")
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"environment\": [],")
+		if(APPLE)
+			if(${isBundle})
+				string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"MIMode\": \"lldb\",\n\t\t\t\t\"type\": \"cppdbg\",\n\t\t\t\t\"program\": \"$<TARGET_BUNDLE_DIR:${tar}>\"")
+			else()
+				string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"MIMode\": \"lldb\",\n\t\t\t\t\"type\": \"cppdbg\",\n\t\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
+			endif()
+		elseif(WIN32)
+			string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"console\": \"externalTerminal\",\n\t\t\t\t\"type\": \"cppvsdbg\",\n\t\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
+		else()
+			string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t\t\"MIMode\": \"gdb\",\n\t\t\t\t\"type\": \"cppdbg\",\n\t\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
+		endif()
+		string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t\t}")
+	endforeach()
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\n\t\t]\n")
+	# Postfix
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "\t}\n")
+
+	## End workspace file
+	string(APPEND VS_WORKSPACE_FILE_CONTENT "}\n")
+
+	# Write file for only one configuration
+	file(GENERATE OUTPUT "${VS_WORKSPACE_FILE}" CONTENT "${VS_WORKSPACE_FILE_CONTENT}" CONDITION "$<CONFIG:${VS_WORKSPACE_GENERATE_CONFIG}>")
+endfunction()
+
 ###############################################################################
 # Macro to be called as the last cmake command from the main cmake file
 macro(cu_finalize)
@@ -873,153 +1161,7 @@ macro(cu_finalize)
 	cmake_policy(SET CMP0087 NEW)
 
 	# Write vscode files
-	get_property(targetsList GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS)
-	if(targetsList)
-		# Write launch.json
-		set(VS_LAUNCH_FILE "${CMAKE_BINARY_DIR}/.vscode/launch.json")
-		# File header
-		set(VS_LAUNCH_FILE_CONTENT "{\n\t\"version\": \"0.2.0\",\n\t\"configurations\": [")
-		# Add each target
-		set(isFirstTarget TRUE)
-		foreach(tarInfo ${targetsList})
-			string(REPLACE "#" ";" tarInfo "${tarInfo}")
-			list(GET tarInfo 0 tar)
-			list(GET tarInfo 1 folder)
-			list(GET tarInfo 2 isBundle)
-			# We must add a comma if it's not the first target
-			if(NOT ${isFirstTarget})
-				string(APPEND VS_LAUNCH_FILE_CONTENT ",")
-			endif()
-			set(isFirstTarget FALSE)
-			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t{")
-			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"name\": \"$<TARGET_NAME:${tar}>\",")
-			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"request\": \"launch\",")
-			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"cwd\": \"${folder}\",")
-			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"args\": [],")
-			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"stopAtEntry\": false,")
-			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"environment\": [],")
-			if(APPLE)
-				if(${isBundle})
-					string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"MIMode\": \"lldb\",\n\t\t\t\"type\": \"cppdbg\",\n\t\t\t\"program\": \"$<TARGET_BUNDLE_DIR:${tar}>\"")
-				else()
-					string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"MIMode\": \"lldb\",\n\t\t\t\"type\": \"cppdbg\",\n\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
-				endif()
-			elseif(WIN32)
-				string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"console\": \"externalTerminal\",\n\t\t\t\"type\": \"cppvsdbg\",\n\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
-			else()
-				string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t\t\"MIMode\": \"gdb\",\n\t\t\t\"type\": \"cppdbg\",\n\t\t\t\"program\": \"$<TARGET_FILE:${tar}>\"")
-			endif()
-			string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t\t}")
-		endforeach()
-		# Write postfix
-		string(APPEND VS_LAUNCH_FILE_CONTENT "\n\t]\n}\n")
-		# Write file only for Debug configuration
-		file(GENERATE OUTPUT "${VS_LAUNCH_FILE}" CONTENT "${VS_LAUNCH_FILE_CONTENT}" CONDITION "$<CONFIG:Debug>")
-
-		# Write c_cpp_properties.json
-		# Currently, the file is not being used by the main folder of the workspace (until https://github.com/microsoft/vscode-cpptools/issues/2096 is fixed)
-		# The only solution right now is to copy the .vscode/c_cpp_properties.json file to projectRoot/.vscode/c_cpp_properties.json
-		set(VS_C_CPP_PROPERTIES_FILE "${CMAKE_BINARY_DIR}/.vscode/c_cpp_properties.json")
-		# File header
-		if(WIN32)
-			set(CONFIG_NAME "Win32")
-		elseif(APPLE)
-			set(CONFIG_NAME "Mac")
-		else()
-			set(CONFIG_NAME "Linux")
-		endif()
-		set(VS_C_CPP_PROPERTIES_FILE_CONTENT "{\n\t\"configurations\": [\n\t\t{\n\t\t\t\"name\": \"${CONFIG_NAME}\",")
-		# Get a list of all targets (including transitive)
-		set(allTargetsList "")
-		foreach(tarInfo ${targetsList})
-			string(REPLACE "#" ";" tarInfo "${tarInfo}")
-			list(GET tarInfo 0 tar)
-			_cu_list_targets(${tar} allTargetsList)
-		endforeach()
-		# Get include paths and defines from all targets
-		set(INCLUDE_PATHS_LIST "")
-		set(DEFINES_LIST "")
-		foreach(tar ${allTargetsList})
-			# Get include paths from target properties
-			get_target_property(includePaths ${tar} INCLUDE_DIRECTORIES)
-			if(includePaths)
-				foreach(includePath ${includePaths})
-					list(APPEND INCLUDE_PATHS_LIST "${includePath}")
-				endforeach()
-			endif()
-			get_target_property(interfaceIncludePaths ${tar} INTERFACE_INCLUDE_DIRECTORIES)
-			if(interfaceIncludePaths)
-				foreach(includePath ${interfaceIncludePaths})
-					list(APPEND INCLUDE_PATHS_LIST "${includePath}")
-				endforeach()
-			endif()
-			# Get defines from target properties
-			get_target_property(defines ${tar} COMPILE_DEFINITIONS)
-			if(defines)
-				foreach(define ${defines})
-					list(APPEND DEFINES_LIST "${define}")
-				endforeach()
-			endif()
-			get_target_property(interfaceDefines ${tar} INTERFACE_COMPILE_DEFINITIONS)
-			if(interfaceDefines)
-				foreach(define ${interfaceDefines})
-					list(APPEND DEFINES_LIST "${define}")
-				endforeach()
-			endif()
-			# TODO: All defines are not listed, I suspect it does list defines added as compilation options using /D
-		endforeach()
-		# Remove duplicates
-		list(REMOVE_DUPLICATES INCLUDE_PATHS_LIST)
-		list(REMOVE_DUPLICATES DEFINES_LIST)
-		# Write include paths
-		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"includePath\": [")
-		set(isFirstTarget TRUE)
-		foreach(includePath ${INCLUDE_PATHS_LIST})
-			# Ignore INSTALL_INTERFACE include paths
-			if("${includePath}" MATCHES "^\\$<INSTALL_INTERFACE")
-				continue()
-			endif()
-			# We must add a comma if it's not the first target
-			if(NOT ${isFirstTarget})
-				string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT ",")
-			endif()
-			set(isFirstTarget FALSE)
-			string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\t\"${includePath}\"")
-		endforeach()
-		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t],")
-		# Write defines
-		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"defines\": [")
-		set(isFirstTarget TRUE)
-		foreach(define ${DEFINES_LIST})
-			# We must add a comma if it's not the first target
-			if(NOT ${isFirstTarget})
-				string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT ",")
-			endif()
-			set(isFirstTarget FALSE)
-			string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\t\"${define}\"")
-		endforeach()
-		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t],")
-		# Write compiler path
-		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"compilerPath\": \"${CMAKE_CXX_COMPILER}\",")
-		# Write c/cpp standard
-		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"cStandard\": \"c${CMAKE_CXX_STANDARD}\",\n\t\t\t\"cppStandard\": \"c++${CMAKE_CXX_STANDARD}\",")
-		if(WIN32)
-			if("${CU_TARGET_ARCH}" STREQUAL "32")
-				set(INTELLISENSE_MODE "windows-msvc-x86")
-			else()
-				set(INTELLISENSE_MODE "windows-msvc-x64")
-			endif()
-		elseif(APPLE)
-			set(INTELLISENSE_MODE "clang-x64")
-		else()
-			set(INTELLISENSE_MODE "gcc-x64")
-		endif()
-		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t\t\"intelliSenseMode\": \"${INTELLISENSE_MODE}\"")
-		# Write postfix
-		string(APPEND VS_C_CPP_PROPERTIES_FILE_CONTENT "\n\t\t}\n\t],\n\t\"version\": 4\n}")
-		# Write file only for Debug configuration
-		file(GENERATE OUTPUT "${VS_C_CPP_PROPERTIES_FILE}" CONTENT "${VS_C_CPP_PROPERTIES_FILE_CONTENT}" CONDITION "$<CONFIG:Debug>")
-	endif()
+	_cu_vscode_write_workspace()
 endmacro()
 
 ###############################################################################
