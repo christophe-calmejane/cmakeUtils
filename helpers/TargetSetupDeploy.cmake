@@ -73,10 +73,10 @@ endfunction()
 ##################################
 # Deploy all runtime dependencies the specified target depends on
 # Optional parameters:
-#  - "INSTALL" => flag instructing the script to also install-deploy the runtime dependencies
+#  - "INSTALL" => flag instructing the script to also install-deploy the runtime dependencies (ignored if TARGET_NAME is a macOS bundle)
 #  - "SIGN" => flag instructing the script to code sign the runtime dependencies
 #  - "QML_DIR <path>" => override default QML_DIR folder
-#  - "INSTALL_DESTINATION <relative path>" => Relative path that was given to the DESTINATION option of the install() rule for TARGET_NAME (defaults to 'bin')
+#  - "INSTALL_DESTINATION <relative path>" => Relative path that was given to the RUNTIME DESTINATION option of the install() rule for TARGET_NAME (defaults to 'bin')
 #  - "SIGNTOOL_OPTIONS <windows signtool options>..." => list of options to pass to windows signtool utility (signing will be done on all runtime dependencies if this is specified)
 #  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
 #  - "CODESIGN_OPTIONS <macOS codesign options>..." => list of options to pass to macOS codesign utility (signing will be done on all runtime dependencies if this is specified)
@@ -99,8 +99,8 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	# Parse optional arguments
 	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY;QT_MAJOR_VERSION" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
 
-	if(NOT DEPLOY_INSTALL_RELATIVE_PATH)
-		set(DEPLOY_INSTALL_RELATIVE_PATH "bin")
+	if(NOT DEPLOY_INSTALL_DESTINATION)
+		set(DEPLOY_INSTALL_DESTINATION "bin")
 	endif()
 
 	set(QT_MAJOR_VERSION "5")
@@ -191,7 +191,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			"if(NOT DEFINED CMAKE_INSTALL_PREFIX)\n"
 			"\tset(CMAKE_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\")\n"
 			"endif()\n"
-			"get_filename_component(INSTALL_FOLDER \"\${CMAKE_INSTALL_PREFIX}/${DEPLOY_INSTALL_RELATIVE_PATH}\" ABSOLUTE BASE_DIR \"${CMAKE_BINARY_DIR}\")\n"
+			"get_filename_component(INSTALL_FOLDER \"\${CMAKE_INSTALL_PREFIX}/${DEPLOY_INSTALL_DESTINATION}\" ABSOLUTE BASE_DIR \"${CMAKE_BINARY_DIR}\")\n"
 			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER RELOCATION_DIR \"\${INSTALL_FOLDER}\")\n"
 		)
 		install(CODE

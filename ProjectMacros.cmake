@@ -821,9 +821,6 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 		set(QT_MAJOR_VERSION ${SDR_QT_MAJOR_VERSION})
 	endif()
 
-	# cmakeUtils deploy runtime
-	cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION})
-
 	# Install directories
 	set(BUNDLE_INSTALL_DIR ".")
 	if(SDR_BUNDLE_DIR)
@@ -833,6 +830,9 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	if(SDR_RUNTIME_DIR)
 		set(RUNTIME_INSTALL_DIR "${SDR_RUNTIME_DIR}")
 	endif()
+
+	# cmakeUtils deploy runtime
+	cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} INSTALL_DESTINATION ${RUNTIME_INSTALL_DIR} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION})
 
 	if(SDR_SIGN)
 		cu_private_setup_signing_command(${TARGET_NAME})
