@@ -400,14 +400,19 @@ function(cu_setup_apple_minimum_versions)
 	# Get the correct variable to check
 	if(CMAKE_SYSTEM_NAME AND CMAKE_SYSTEM_NAME STREQUAL "iOS")
 		set(PARAM_TO_READ "CUSAMV_IOS")
-	else()
+	elseif(CMAKE_SYSTEM_NAME AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 		set(PARAM_TO_READ "CUSAMV_MACOS")
 	endif()
 
 	if(${PARAM_TO_READ})
-		# Check if we must set a new value (nothing in cache or greater version already set)
-		if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET OR CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS ${${PARAM_TO_READ}})
+		# We only want to override the minimum version if it is not already set (by this very function) or if it is set to a lower version
+		# This is to override the default minimum version set by the first project() call that automatically sets CMAKE_OSX_DEPLOYMENT_TARGET if not defined
+
+		# We use a global property to store the minimum version set by this function
+		get_property(minimumVersion GLOBAL PROPERTY CU_APPLE_MINIMUM_VERSION)
+		if(NOT DEFINED minimumVersion OR minimumVersion VERSION_LESS ${${PARAM_TO_READ}})
 			set(CMAKE_OSX_DEPLOYMENT_TARGET ${${PARAM_TO_READ}} CACHE INTERNAL "Force minimum target version" FORCE)
+			set_property(GLOBAL PROPERTY CU_APPLE_MINIMUM_VERSION ${${PARAM_TO_READ}})
 		endif()
 	endif()
 endfunction()
