@@ -480,14 +480,17 @@ endfunction()
 
 ###############################################################################
 # Setup common options for a library target
+# Optional parameters:
+#  - "NO_MAX_WARNINGS" => Will not call cu_set_maximum_warnings on the target
 function(cu_setup_library_options TARGET_NAME)
+	# Parse arguments
+	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS" "" "" ${ARGN})
+
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
 
-	# Cannot use ARGN directly with list() command. Copy to a variable first.
-	set (EXTRA_ARGS ${ARGN})
 	# Did we get any optional args?
-	list(LENGTH EXTRA_ARGS COUNT_EXTRA_ARGS)
+	list(LENGTH CUSLO_UNPARSED_ARGUMENTS COUNT_EXTRA_ARGS)
 	if(${COUNT_EXTRA_ARGS} GREATER 0)
 		message(FATAL_ERROR "No extra arg expected when calling cu_setup_library_options.\nPotentially check for define change from ${TARGET_NAME}_cxx_STATICS to ${TARGET_NAME}_STATICS in exports.hpp\n")
 	endif()
@@ -563,8 +566,10 @@ function(cu_setup_library_options TARGET_NAME)
 		cu_setup_asan_options(${TARGET_NAME})
 	endif()
 
-	# Set full warnings (including treat warnings as error)
-	cu_set_maximum_warnings(${TARGET_NAME})
+	if (NOT CUSLO_NO_MAX_WARNINGS)
+		# Set full warnings (including treat warnings as error)
+		cu_set_maximum_warnings(${TARGET_NAME})
+	endif()
 	
 	# Set parallel build
 	cu_set_parallel_build(${TARGET_NAME})
@@ -707,7 +712,12 @@ endfunction()
 
 ###############################################################################
 # Setup common options for an executable target.
+# Optional parameters:
+#  - "NO_MAX_WARNINGS" => Will not call cu_set_maximum_warnings on the target
 function(cu_setup_executable_options TARGET_NAME)
+	# Parse arguments
+	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS" "" "" ${ARGN})
+
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
 		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0600)
@@ -733,8 +743,10 @@ function(cu_setup_executable_options TARGET_NAME)
 		cu_setup_asan_options(${TARGET_NAME})
 	endif()
 
-	# Set full warnings (including treat warnings as error)
-	cu_set_maximum_warnings(${TARGET_NAME})
+	if (NOT CUSEO_NO_MAX_WARNINGS)
+		# Set full warnings (including treat warnings as error)
+		cu_set_maximum_warnings(${TARGET_NAME})
+	endif()
 	
 	# Set parallel build
 	cu_set_parallel_build(${TARGET_NAME})
