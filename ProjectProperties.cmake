@@ -50,6 +50,12 @@ if(CMAKE_HOST_APPLE)
 			message(FATAL_ERROR "Required variable (CU_INSTALLER_SIGNING_IDENTITY) not defined before including ProjectProperties.cmake")
 		endif()
 	endif()
+
+	# Due to CMake 3.23 breaking change in CPack.Distribution, we have to forbid it for now
+	# Until https://gitlab.kitware.com/cmake/cmake/-/issues/18201 is fixed
+	if(${CMAKE_VERSION} VERSION_GREATER "3.22.99")
+		message(FATAL_ERROR "Due to a breaking change since CMake 3.23, don't use any version greater than 3.22.x for now")
+	endif()
 endif()
 
 if(WIN32)
