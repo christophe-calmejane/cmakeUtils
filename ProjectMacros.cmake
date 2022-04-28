@@ -815,9 +815,8 @@ macro(cu_setup_bundle_information TARGET_NAME)
 		cu_is_macos_bundle(${TARGET_NAME} isBundle)
 		if(${isBundle})
 			if(NOT CU_TARGET_BUNDLE_IDENTIFIER)
-				# We want to use the Marketing Version as part of the bundle identifier name because we want this to be a different binary than another marketing version.
-				# This is because of how macOS indexes files in spotlight, which would prevent installation of the same binary with different marketing versions (same name).
-				set(CU_PROJECT_BUNDLEIDENTIFIER "${CU_REVERSE_DOMAIN_NAME}.${TARGET_NAME}${CU_PROJECT_MARKETING_VERSION}")
+				# Temporarily revert commit that uses marketing version by default, use reverse domain name instead (not using CU_REVERSE_DOMAIN_NAME as it looses the case and we want max compatibility)
+				set(CU_PROJECT_BUNDLEIDENTIFIER "${CU_COMPANY_DOMAIN}.${CU_COMPANY_NAME}.${TARGET_NAME}")
 			else()
 				set(CU_PROJECT_BUNDLEIDENTIFIER "${CU_TARGET_BUNDLE_IDENTIFIER}")
 				message(STATUS "Overriding default bundle identifier for ${TARGET_NAME} with ${CU_PROJECT_BUNDLEIDENTIFIER}")
