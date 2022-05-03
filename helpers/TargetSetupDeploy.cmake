@@ -257,8 +257,20 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 			if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 				file(TO_CMAKE_PATH "${_DEPLOYQT_DIR}/windeployqt" DEPLOY_QT_COMMAND)
+				# Define deployqt options
+				if(QT_MAJOR_VERSION STREQUAL "5")
+					set(DEPLOY_QT_OPTIONS "--no-patchqt --no-translations --no-system-d3d-compiler --no-compiler-runtime --no-webkit2 --no-angle --no-opengl-sw")
+				else()
+					set(DEPLOY_QT_OPTIONS "--no-patchqt --no-translations --no-system-d3d-compiler --no-compiler-runtime --no-opengl-sw")
+				endif()
 			elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 				file(TO_CMAKE_PATH "${_DEPLOYQT_DIR}/macdeployqt" DEPLOY_QT_COMMAND)
+				# Define deployqt options
+				if(QT_MAJOR_VERSION STREQUAL "5")
+					set(DEPLOY_QT_OPTIONS "--no-patchqt --no-translations --no-system-d3d-compiler --no-compiler-runtime --no-webkit2 --no-angle --no-opengl-sw")
+				else()
+					set(DEPLOY_QT_OPTIONS "--no-patchqt --no-translations --no-system-d3d-compiler --no-compiler-runtime --no-opengl-sw")
+				endif()
 			endif()
 
 			if (NOT DEPLOY_QML_DIR)
@@ -274,7 +286,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				foreach(_QT_DEPENDENCY ${_QT_DEPENDENCIES_OUTPUT})
 					# Run deploy and in a specific directory
 					string(APPEND DEPLOY_SCRIPT_CONTENT
-						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" -verbose 0 --dir \"$<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt\" --no-patchqt -no-translations -no-system-d3d-compiler --no-compiler-runtime --no-webkit2 -no-angle --no-opengl-sw --qmldir \"${DEPLOY_QML_DIR}\" \"$<TARGET_FILE:${_QT_DEPENDENCY}>\")\n"
+						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" -verbose 0 --dir \"$<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt\" ${DEPLOY_QT_OPTIONS} --qmldir \"${DEPLOY_QML_DIR}\" \"$<TARGET_FILE:${_QT_DEPENDENCY}>\")\n"
 					)
 				endforeach()
 
