@@ -482,9 +482,10 @@ endfunction()
 # Setup common options for a library target
 # Optional parameters:
 #  - "NO_MAX_WARNINGS" => Will not call cu_set_maximum_warnings on the target
+#  - "NO_ALIAS_TARGET" => Will not create an alias target for the target
 function(cu_setup_library_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS" "" "" ${ARGN})
+	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET" "" "" ${ARGN})
 
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -521,6 +522,11 @@ function(cu_setup_library_options TARGET_NAME)
 				target_compile_options(${TARGET_NAME} PRIVATE -fvisibility=hidden)
 			endif()
 		endif()
+		# Add target alias
+		if (NOT CUSLO_NO_ALIAS_TARGET)
+			add_library(${PROJECT_NAME}::static ALIAS ${TARGET_NAME})
+			message(STATUS "Added static library alias for ${TARGET_NAME} (${PROJECT_NAME}::static)")
+		endif()
 
 	# Shared library special options
 	elseif(${targetType} STREQUAL "SHARED_LIBRARY")
@@ -544,6 +550,11 @@ function(cu_setup_library_options TARGET_NAME)
 		# Generate so-version on Linux and macOS
 		if(NOT WIN32)
 			set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+		endif()
+		# Add target alias
+		if (NOT CUSLO_NO_ALIAS_TARGET)
+			add_library(${PROJECT_NAME}::shared ALIAS ${TARGET_NAME})
+			message(STATUS "Added shared library alias for ${TARGET_NAME} (${PROJECT_NAME}::shared)")
 		endif()
 
 	# Module library special options
