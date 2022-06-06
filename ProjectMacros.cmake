@@ -821,6 +821,7 @@ endfunction()
 # Optional parameters:
 #  - "INSTALL" -> Generate CMake install rules
 #  - "SIGN"-> Code sign all binaries
+#  - "NO_DEPENDENCIES" -> Do not copy/install/sign dependencies
 #  - "BUNDLE_DIR <install directory>" => directory where to install BUNDLE file type (defaults to ".")
 #  - "RUNTIME_DIR <install directory>" => directory where to install RUNTIME file type (defaults to "bin")
 #  - "QT_MAJOR_VERSION <version>" => Qt major version (defaults to 5)
@@ -834,7 +835,7 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	endif()
 
 	# Parse optional arguments
-	cmake_parse_arguments(SDR "INSTALL;SIGN" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION" "" ${ARGN})
+	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION" "" ${ARGN})
 
 	# Get signing options
 	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
@@ -859,8 +860,10 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 		set(RUNTIME_INSTALL_DIR "${SDR_RUNTIME_DIR}")
 	endif()
 
-	# cmakeUtils deploy runtime
-	cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} INSTALL_DESTINATION ${RUNTIME_INSTALL_DIR} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION})
+	# Deploy runtime dependencies
+	if(NOT ${SDR_NO_DEPENDENCIES})
+		cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} INSTALL_DESTINATION ${RUNTIME_INSTALL_DIR} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION})
+	endif()
 
 	if(SDR_SIGN)
 		cu_private_setup_signing_command(${TARGET_NAME})
