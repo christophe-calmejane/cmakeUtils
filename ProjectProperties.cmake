@@ -53,8 +53,11 @@ if(CMAKE_HOST_APPLE)
 
 	# Due to CMake 3.23 breaking change in CPack.Distribution, we have to forbid it for now
 	# Until https://gitlab.kitware.com/cmake/cmake/-/issues/18201 is fixed
+	# Fixed by https://gitlab.kitware.com/cmake/cmake/-/issues/23467
 	if(${CMAKE_VERSION} VERSION_GREATER "3.22.99")
-		message(FATAL_ERROR "Due to a breaking change since CMake 3.23, don't use any version greater than 3.22.x for now")
+		if(${CMAKE_VERSION} VERSION_LESS "3.23.2")
+			message(FATAL_ERROR "CMake versions 3.23.0 and 3.23.1 are bugged, upgrade to newer version (see comments above)")
+		endif()
 	endif()
 endif()
 
