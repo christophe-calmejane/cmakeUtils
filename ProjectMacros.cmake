@@ -916,6 +916,7 @@ endfunction()
 #  - "BUNDLE_DIR <install directory>" => directory where to install BUNDLE file type (defaults to ".")
 #  - "RUNTIME_DIR <install directory>" => directory where to install RUNTIME file type (defaults to "bin")
 #  - "QT_MAJOR_VERSION <version>" => Qt major version (defaults to 5)
+#  - "EXPORT_TARGET" -> Export cmake target
 function(cu_setup_deploy_runtime TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -926,7 +927,7 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	endif()
 
 	# Parse optional arguments
-	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION" "" ${ARGN})
+	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION" "" ${ARGN})
 
 	# Get signing options
 	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
@@ -964,17 +965,26 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	endif()
 
 	if(SDR_INSTALL)
+		set(EXPORT_TARGET_COMMANDS "")
 		set(INSTALL_TARGET_KEYWORD "TARGETS")
 		if(${targetImported})
 			# Check for cmake minimum version
 			cmake_minimum_required(VERSION 3.21) # IMPORTED_RUNTIME_ARTIFACTS added in cmake 3.21
 			set(INSTALL_TARGET_KEYWORD "IMPORTED_RUNTIME_ARTIFACTS")
+		else()
+			if(${SDR_EXPORT_TARGET})
+				list(APPEND EXPORT_TARGET_COMMANDS EXPORT ${TARGET_NAME})
+			endif()
 		endif()
-		install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
+		install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} ${EXPORT_TARGET_COMMANDS} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
 		if(${targetImported})
 			# We want to sign the imported target once installed (if requested)
 			if(SDR_SIGN)
 				cu_private_sign_installed_binary("${RUNTIME_INSTALL_DIR}/$<TARGET_FILE_NAME:${TARGET_NAME}>")
+			endif()
+		else()
+			if(${SDR_EXPORT_TARGET})
+				install(EXPORT ${TARGET_NAME} DESTINATION cmake)
 			endif()
 		endif()
 	endif()
