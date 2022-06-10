@@ -81,6 +81,51 @@ function(cu_private_get_sign_command_options OUT_VAR)
 endfunction()
 
 #
+function(cu_private_get_target_resource_folder_name TARGET_NAME OUT_VAR)
+	cu_is_macos_bundle(${TARGET_NAME} isBundle)
+	if(${isBundle})
+		set(${OUT_VAR} "Resources" PARENT_SCOPE)
+	else()
+		set(${OUT_VAR} "resources" PARENT_SCOPE)
+	endif()
+endfunction()
+
+#
+function(cu_private_get_target_resource_path_string TARGET_NAME OUT_VAR)
+	cu_private_get_target_resource_folder_name(${TARGET_NAME} folderName)
+	cu_is_macos_bundle(${TARGET_NAME} isBundle)
+	if(${isBundle})
+		set(${OUT_VAR} "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/${folderName}" PARENT_SCOPE)
+	else()
+		set(${OUT_VAR} "$<TARGET_FILE_DIR:${TARGET_NAME}>/${folderName}" PARENT_SCOPE)
+	endif()
+endfunction()
+
+#
+function(cu_private_sign_installed_binary BINARY_PATH)
+	# Xcode already forces automatic signing, so only sign for the other cases
+	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
+		# Get signing options
+		cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
+
+		# Expand options to individual parameters
+		string(REPLACE ";" " " SIGN_COMMAND_OPTIONS "${SIGN_COMMAND_OPTIONS}")
+
+		# Generate code-signing code
+		string(CONCAT CODESIGNING_CODE
+			"include(\"${CMAKE_MACROS_FOLDER}/helpers/SignBinary.cmake\")\n"
+			"get_filename_component(INSTALLED_PATH \"\${CMAKE_INSTALL_PREFIX}/${BINARY_PATH}\" ABSOLUTE BASE_DIR \"${CMAKE_BINARY_DIR}\")\n"
+			"cu_sign_binary(BINARY_PATH \"\${INSTALLED_PATH}\" ${SIGN_COMMAND_OPTIONS})\n"
+		)
+
+		# Write as install rule
+		install(CODE
+			"${CODESIGNING_CODE}"
+		)
+	endif()
+endfunction()
+
+#
 function(cu_private_setup_signing_command TARGET_NAME)
 	# Xcode already forces automatic signing, so only sign for the other cases
 	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
@@ -426,21 +471,16 @@ function(cu_set_resource_file TARGET_NAME SOURCE_FILE_PATH DESTINATION_NAME)
 	# Parse arguments
 	cmake_parse_arguments(CUSRF "INSTALL" "" "" ${ARGN})
 
+	cu_private_get_target_resource_path_string(${TARGET_NAME} resourcePath)
+	add_custom_command(
+		TARGET ${TARGET_NAME}
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SOURCE_FILE_PATH}" "${resourcePath}/${DESTINATION_NAME}"
+		VERBATIM
+	)
+
 	cu_is_macos_bundle(${TARGET_NAME} isBundle)
-	if(${isBundle})
-		add_custom_command(
-			TARGET ${TARGET_NAME}
-			POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SOURCE_FILE_PATH}" "$<TARGET_BUNDLE_CONTENT_DIR:${TARGET_NAME}>/Resources/${DESTINATION_NAME}"
-			VERBATIM
-		)
-	else()
-		add_custom_command(
-			TARGET ${TARGET_NAME}
-			POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SOURCE_FILE_PATH}" "$<TARGET_FILE_DIR:${TARGET_NAME}>/resources/${DESTINATION_NAME}"
-			VERBATIM
-		)
+	if(NOT ${isBundle})
 		if(CUSRF_INSTALL)
 			install(FILES ${SOURCE_FILE_PATH} DESTINATION resources RENAME ${DESTINATION_NAME})
 		endif()
