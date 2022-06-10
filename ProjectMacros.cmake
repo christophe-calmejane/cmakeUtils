@@ -918,12 +918,27 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 		cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} INSTALL_DESTINATION ${RUNTIME_INSTALL_DIR} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION})
 	endif()
 
-	if(SDR_SIGN)
+	get_target_property(targetImported ${TARGET_NAME} IMPORTED)
+
+	# Sign the binary during post build if requested (but not for imported targets as they are already built)
+	if(SDR_SIGN AND NOT ${targetImported})
 		cu_private_setup_signing_command(${TARGET_NAME})
 	endif()
 
 	if(SDR_INSTALL)
-		install(TARGETS ${TARGET_NAME} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
+		set(INSTALL_TARGET_KEYWORD "TARGETS")
+		if(${targetImported})
+			# Check for cmake minimum version
+			cmake_minimum_required(VERSION 3.21) # IMPORTED_RUNTIME_ARTIFACTS added in cmake 3.21
+			set(INSTALL_TARGET_KEYWORD "IMPORTED_RUNTIME_ARTIFACTS")
+		endif()
+		install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
+		if(${targetImported})
+			# We want to sign the imported target once installed (if requested)
+			if(SDR_SIGN)
+				cu_private_sign_installed_binary("${RUNTIME_INSTALL_DIR}/$<TARGET_FILE_NAME:${TARGET_NAME}>")
+			endif()
+		endif()
 	endif()
 endfunction()
 
