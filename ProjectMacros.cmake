@@ -127,6 +127,9 @@ endfunction()
 
 #
 function(cu_private_setup_signing_command TARGET_NAME)
+	# Parse optional arguments
+	cmake_parse_arguments(CUPSSC "INSTALL;NO_POST_BUILD" "" "" ${ARGN})
+
 	# Xcode already forces automatic signing, so only sign for the other cases
 	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
 		# Get signing options
@@ -147,18 +150,28 @@ function(cu_private_setup_signing_command TARGET_NAME)
 			"include(\"${CMAKE_MACROS_FOLDER}/helpers/SignBinary.cmake\")\n"
 			"cu_sign_binary(BINARY_PATH \"${binary_path}\" ${SIGN_COMMAND_OPTIONS})\n"
 		)
+
 		# Write to a cmake file
-		set(CODESIGN_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/codesign_$<CONFIG>_${TARGET_NAME}.cmake)
-		file(GENERATE
-			OUTPUT ${CODESIGN_SCRIPT}
-			CONTENT ${CODESIGNING_CODE}
-		)
-		# Run the codesign script as POST_BUILD command on the target
-		add_custom_command(TARGET ${TARGET_NAME}
-			POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -P ${CODESIGN_SCRIPT}
-			VERBATIM
-		)
+		if(NOT ${CUPSSC_NO_POST_BUILD})
+			set(CODESIGN_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/codesign_$<CONFIG>_${TARGET_NAME}.cmake)
+			file(GENERATE
+				OUTPUT ${CODESIGN_SCRIPT}
+				CONTENT ${CODESIGNING_CODE}
+			)
+			# Run the codesign script as POST_BUILD command on the target
+			add_custom_command(TARGET ${TARGET_NAME}
+				POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -P ${CODESIGN_SCRIPT}
+				VERBATIM
+			)
+		endif()
+
+		# Write as install rule
+		if(CUPSSC_INSTALL)
+			install(CODE
+				"${CODESIGNING_CODE}"
+			)
+		endif()
 	endif()
 endfunction()
 
