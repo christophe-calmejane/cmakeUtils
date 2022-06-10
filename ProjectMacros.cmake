@@ -501,6 +501,44 @@ function(cu_set_resource_file TARGET_NAME SOURCE_FILE_PATH DESTINATION_NAME)
 endfunction()
 
 ###############################################################################
+# Set an executable target as a resource for a target.
+# This will copy the executable and all its dependencies to the resources folder for non bundle targets and to the Resources folder for bundles.
+# Mandatory parameters:
+# - "TARGET_NAME" => The target name to which the resource will be added during its POST_BUILD phase
+# - "BINARY_TARGET_NAME" => The target name of the executable to copy, this can be an IMPORTED target
+# - "DESTINATION_FOLDER" => The folder where the executable (and dependencies) will be copied, relative to the resources folder
+# Optional parameters:
+#  - "INSTALL" => Will also install the file(s) (for non-bundle target as the file will already be inside the bundle otherwise)
+#  - "SIGN"-> Code sign all binaries
+function(cu_set_executable_target_resource TARGET_NAME BINARY_TARGET_NAME DESTINATION_FOLDER)
+	# Check BINARY_TARGET_NAME is a executable target
+	get_target_property(targetType ${BINARY_TARGET_NAME} TYPE)
+	if(NOT ${targetType} STREQUAL "EXECUTABLE")
+		message(FATAL_ERROR "Target ${BINARY_TARGET_NAME} is not an executable")
+	endif()
+
+	# Parse arguments
+	cmake_parse_arguments(CUSRBT "INSTALL;SIGN" "" "" ${ARGN})
+
+	set(additionalParameters "")
+	if(CUSRBT_INSTALL)
+		list(APPEND additionalParameters "INSTALL")
+	endif()
+
+	# Set executable file as a resource
+	cu_set_resource_file(${TARGET_NAME} "$<TARGET_FILE:${BINARY_TARGET_NAME}>" "${DESTINATION_FOLDER}/$<TARGET_FILE_NAME:${BINARY_TARGET_NAME}>" ${additionalParameters})
+
+	if(CUSRBT_SIGN)
+		list(APPEND additionalParameters "SIGN")
+	endif()
+
+	# Deploy dependencies
+	cu_private_get_target_resource_folder_name(${TARGET_NAME} resourceFolder)
+	cu_private_get_target_resource_path_string(${TARGET_NAME} resourcePath)
+	cu_setup_deploy_runtime(${BINARY_TARGET_NAME} ${additionalParameters} DEPLOY_DESTINATION "${resourcePath}/${DESTINATION_FOLDER}" RUNTIME_DIR "${resourceFolder}/${DESTINATION_FOLDER}" ATTACH_TO_TARGET_POSTBUILD ${TARGET_NAME})
+endfunction()
+
+###############################################################################
 # Set a folder as a resource for a target.
 # This will copy the given folder to the resources folder for non bundle targets and to the Resources folder for bundles
 # Optional parameters:
