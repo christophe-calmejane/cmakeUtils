@@ -71,11 +71,12 @@ function(cu_private_target_list_link_libraries TARGET_NAME CLOSEST_RUNTIME_PAREN
 endfunction()
 
 ##################################
-# Deploy all runtime dependencies the specified target depends on
+# Deploy all runtime dependencies the specified target depends on, to the appropriate runtime folder
 # Optional parameters:
 #  - "INSTALL" => flag instructing the script to also install-deploy the runtime dependencies (ignored if TARGET_NAME is a macOS bundle)
 #  - "SIGN" => flag instructing the script to code sign the runtime dependencies
 #  - "QML_DIR <path>" => override default QML_DIR folder
+#  - "DEPLOY_DESTINATION <absolute path>" => If defined, absolute path to the folder where the runtime dependencies will be deployed (not installed) instead of using the default one (returned by cu_get_binary_runtime_path)
 #  - "INSTALL_DESTINATION <relative path>" => Relative path that was given to the RUNTIME DESTINATION option of the install() rule for TARGET_NAME (defaults to 'bin')
 #  - "SIGNTOOL_OPTIONS <windows signtool options>..." => list of options to pass to windows signtool utility (signing will be done on all runtime dependencies if this is specified)
 #  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
@@ -84,6 +85,7 @@ endfunction()
 #  - "DEP_SEARCH_DIRS_DEBUG <path>..." => list of additional directories to search for dependencies when building debug binaries
 #  - "DEP_SEARCH_DIRS_OPTIMIZED <path>..." => list of additional directories to search for dependencies when building optimized binaries
 #  - "QT_MAJOR_VERSION <version>" => override default Qt major version (which is 5)
+#  - "ATTACH_TO_TARGET_POSTBUILD <target>" => Attach deploy actions to the specified target instead of the target itself (useful for IMPORTED targets)
 function(cu_deploy_runtime_target TARGET_NAME)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
@@ -97,15 +99,15 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${TARGET_NAME}.cmake)
 
 	# Parse optional arguments
-	cmake_parse_arguments(DEPLOY "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;CODESIGN_IDENTITY;QT_MAJOR_VERSION" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
+	cmake_parse_arguments(CUDRT "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;DEPLOY_DESTINATION;CODESIGN_IDENTITY;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
 
-	if(NOT DEPLOY_INSTALL_DESTINATION)
-		set(DEPLOY_INSTALL_DESTINATION "bin")
+	if(NOT CUDRT_INSTALL_DESTINATION)
+		set(CUDRT_INSTALL_DESTINATION "bin")
 	endif()
 
 	set(QT_MAJOR_VERSION "5")
-	if(DEPLOY_QT_MAJOR_VERSION)
-		set(QT_MAJOR_VERSION ${DEPLOY_QT_MAJOR_VERSION})
+	if(CUDRT_QT_MAJOR_VERSION)
+		set(QT_MAJOR_VERSION ${CUDRT_QT_MAJOR_VERSION})
 	endif()
 
 	# Init code for both easy-debug and install scripts
@@ -126,8 +128,8 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	set(DEPLOY_INIT_CODE "")
 	set(INSTALL_INIT_CODE "")
-	if(DEPLOY_DEP_SEARCH_DIRS_DEBUG)
-		foreach(DEP_SEARCH_DIR ${DEPLOY_DEP_SEARCH_DIRS_DEBUG})
+	if(CUDRT_DEP_SEARCH_DIRS_DEBUG)
+		foreach(DEP_SEARCH_DIR ${CUDRT_DEP_SEARCH_DIRS_DEBUG})
 			string(APPEND DEPLOY_INIT_CODE
 				"if(\"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
 				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
@@ -140,8 +142,8 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			)
 		endforeach()
 	endif()
-	if(DEPLOY_DEP_SEARCH_DIRS_OPTIMIZED)
-		foreach(DEP_SEARCH_DIR ${DEPLOY_DEP_SEARCH_DIRS_OPTIMIZED})
+	if(CUDRT_DEP_SEARCH_DIRS_OPTIMIZED)
+		foreach(DEP_SEARCH_DIR ${CUDRT_DEP_SEARCH_DIRS_OPTIMIZED})
 			string(APPEND DEPLOY_INIT_CODE
 				"if(NOT \"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
 				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
@@ -176,10 +178,18 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"message(STATUS \"Deploying runtime dependencies for ${TARGET_NAME}...\")\n"
 		"${INIT_CODE}"
 		"${DEPLOY_INIT_CODE}"
-		"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER)\n"
 	)
+	if(CUDRT_DEPLOY_DESTINATION)
+		string(APPEND DEPLOY_SCRIPT_CONTENT
+			"set(RUNTIME_FOLDER \"${CUDRT_DEPLOY_DESTINATION}\")\n"
+		)
+	else()
+		string(APPEND DEPLOY_SCRIPT_CONTENT
+			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER)\n"
+		)
+	endif()
 
-	if(DEPLOY_INSTALL)
+	if(CUDRT_INSTALL)
 		# WARNING: install(CODE) does not support multiple parameters, so we have to issue multiple commands
 		install(CODE
 			"\n${INIT_CODE}"
@@ -191,7 +201,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			"if(NOT DEFINED CMAKE_INSTALL_PREFIX)\n"
 			"\tset(CMAKE_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\")\n"
 			"endif()\n"
-			"get_filename_component(INSTALL_FOLDER \"\${CMAKE_INSTALL_PREFIX}/${DEPLOY_INSTALL_DESTINATION}\" ABSOLUTE BASE_DIR \"${CMAKE_BINARY_DIR}\")\n"
+			"get_filename_component(INSTALL_FOLDER \"\${CMAKE_INSTALL_PREFIX}/${CUDRT_INSTALL_DESTINATION}\" ABSOLUTE BASE_DIR \"${CMAKE_BINARY_DIR}\")\n"
 			"cu_get_binary_runtime_path(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" RPATH_OUTPUT RUNTIME_FOLDER RELOCATION_DIR \"\${INSTALL_FOLDER}\")\n"
 		)
 		install(CODE
@@ -233,7 +243,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			)
 
 			# If install deployment is requested
-			if(DEPLOY_INSTALL)
+			if(CUDRT_INSTALL)
 				# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
 				if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR NOT _IS_BUNDLE)
 					install(CODE
@@ -273,8 +283,8 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				endif()
 			endif()
 
-			if (NOT DEPLOY_QML_DIR)
-				set(DEPLOY_QML_DIR ".")
+			if (NOT CUDRT_QML_DIR)
+				set(CUDRT_QML_DIR ".")
 			endif()
 
 			if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -286,7 +296,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				foreach(_QT_DEPENDENCY ${_QT_DEPENDENCIES_OUTPUT})
 					# Run deploy and in a specific directory
 					string(APPEND DEPLOY_SCRIPT_CONTENT
-						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" -verbose 0 --dir \"$<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt\" ${DEPLOY_QT_OPTIONS} --qmldir \"${DEPLOY_QML_DIR}\" \"$<TARGET_FILE:${_QT_DEPENDENCY}>\")\n"
+						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" -verbose 0 --dir \"$<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt\" ${DEPLOY_QT_OPTIONS} --qmldir \"${CUDRT_QML_DIR}\" \"$<TARGET_FILE:${_QT_DEPENDENCY}>\")\n"
 					)
 				endforeach()
 
@@ -296,16 +306,16 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				)
 
 				# Mark the deploy folder if required for install
-				if(DEPLOY_INSTALL)
+				if(CUDRT_INSTALL)
 					install(DIRECTORY $<TARGET_FILE_DIR:${TARGET_NAME}>/_deployqt/ DESTINATION bin)
 				endif()
 			elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 				if(NOT _IS_BUNDLE)
 					message(WARNING "Qt on macOS is only supported for BUNDLE applications (Convert ${TARGET_NAME} to a BUNDLE application)")
 				else()
-					STRING(REPLACE "\"" "" UNQUOTED_CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})
+					STRING(REPLACE "\"" "" UNQUOTED_CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})
 					string(APPEND DEPLOY_SCRIPT_CONTENT
-						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" \"$<TARGET_BUNDLE_DIR:${TARGET_NAME}>\" -verbose=0 -qmldir=${DEPLOY_QML_DIR} \"-codesign=${UNQUOTED_CODESIGN_IDENTITY}\")\n"
+						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" \"$<TARGET_BUNDLE_DIR:${TARGET_NAME}>\" -verbose=0 -qmldir=${CUDRT_QML_DIR} \"-codesign=${UNQUOTED_CODESIGN_IDENTITY}\")\n"
 					)
 				endif()
 			endif()
@@ -318,7 +328,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"cu_deploy_runtime_binary(BINARY_PATH \"$<TARGET_FILE:${TARGET_NAME}>\" SEARCH_DIRS \${DEPENDENCIES_SEARCH_DIRS} TARGET_DIR \"\${RUNTIME_FOLDER}\" COPIED_FILES_VAR COPIED_FILES)\n"
 	)
 
-	if(DEPLOY_INSTALL)
+	if(CUDRT_INSTALL)
 		# Don't use the install rule for macOS bundles, as we want to copy the files directly in the bundle during compilation phase. The install rule of the bundle itself will copy the full bundle including all copied files in it
 		if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR NOT _IS_BUNDLE)
 			# Call deploy non-qt runtime (to handle transitive dependencies) for install (not the same folder than easy-debug!!)
@@ -336,26 +346,26 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		"file(LOCK \"\${DEPLOY_LOCK_FILE}\" RELEASE)\n"
 		"message(STATUS \"Done deploying ${TARGET_NAME}\")\n"
 	)
-	if(DEPLOY_INSTALL)
+	if(CUDRT_INSTALL)
 		install(CODE
 			"file(LOCK \"\${DEPLOY_LOCK_FILE}\" RELEASE)"
 		)
 	endif()
 
 	# If code signing is requested
-	if(DEPLOY_SIGN)
+	if(CUDRT_SIGN)
 		# Expand options lists
-		string(REPLACE ";" " " SIGNTOOL_OPTIONS "${DEPLOY_SIGNTOOL_OPTIONS}")
-		string(REPLACE ";" " " SIGNTOOL_AGAIN_OPTIONS "${DEPLOY_SIGNTOOL_AGAIN_OPTIONS}")
-		string(REPLACE ";" " " CODESIGN_OPTIONS "${DEPLOY_CODESIGN_OPTIONS}")
+		string(REPLACE ";" " " SIGNTOOL_OPTIONS "${CUDRT_SIGNTOOL_OPTIONS}")
+		string(REPLACE ";" " " SIGNTOOL_AGAIN_OPTIONS "${CUDRT_SIGNTOOL_AGAIN_OPTIONS}")
+		string(REPLACE ";" " " CODESIGN_OPTIONS "${CUDRT_CODESIGN_OPTIONS}")
 
 		# Codesigning code for both easy-debug and install scripts
 		string(CONCAT CODESIGNING_CODE
 			"foreach(DEP \${BINARIES_TO_SIGN})\n"
-			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})\n"
+			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
 			"endforeach()\n"
 			"foreach(DEP \${COPIED_FILES})\n"
-			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})\n"
+			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
 			"endforeach()\n"
 		)
 
@@ -365,7 +375,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			"message(STATUS \"Done\")\n"
 		)
 
-		if(DEPLOY_INSTALL)
+		if(CUDRT_INSTALL)
 			install(CODE
 				"${CODESIGNING_CODE}"
 			)
@@ -378,7 +388,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				endif()
 				string(APPEND INSTALL_RESIGN_CODE
 					"message(STATUS \"Code re-signing ${TARGET_NAME}...\")\n"
-					"cu_sign_binary(BINARY_PATH \"${resign_binary_path}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${DEPLOY_CODESIGN_IDENTITY})\n"
+					"cu_sign_binary(BINARY_PATH \"${resign_binary_path}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
 					"message(STATUS \"Done\")\n"
 				)
 				install(CODE
@@ -394,8 +404,20 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		CONTENT ${DEPLOY_SCRIPT_CONTENT}
 	)
 
+	# Attach the script to target POST_BUILD event
+	set(POSTBUILD_TARGET_NAME "${TARGET_NAME}")
+	if(CUDRT_ATTACH_TO_TARGET_POSTBUILD)
+		set(POSTBUILD_TARGET_NAME "${CUDRT_ATTACH_TO_TARGET_POSTBUILD}")
+	endif()
+
+	# Check if the target is an IMPORTED target, in which case we cannot attach the script to the POST_BUILD event
+	get_target_property(targetImported ${POSTBUILD_TARGET_NAME} IMPORTED)
+	if(${targetImported})
+		message(FATAL_ERROR "Cannot attach deploy script to ${POSTBUILD_TARGET_NAME} because it is an IMPORTED target. Use the ATTACH_TO_TARGET_POSTBUILD option to specify a target to attach the deploy script to.")
+	endif()
+
 	# Finally, run the deploy script as POST_BUILD command on the target
-	add_custom_command(TARGET ${TARGET_NAME}
+	add_custom_command(TARGET ${POSTBUILD_TARGET_NAME}
 		POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -P ${DEPLOY_SCRIPT}
 		VERBATIM
