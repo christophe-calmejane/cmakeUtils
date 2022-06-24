@@ -381,19 +381,25 @@ function(cu_deploy_runtime_target TARGET_NAME)
 			)
 			# Xcode Generator will use its own signature, so we need to re-sign during installation
 			if("${CMAKE_GENERATOR}" STREQUAL "Xcode")
-				if(${_IS_BUNDLE})
-					set(resign_binary_path "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>")
+				# This can only be done if the target is not an imported bundle (for this case the bundle will have to be copied inside the main bundle so that it will be deeply signed)
+				get_target_property(_IS_IMPORTED ${TARGET_NAME} IMPORTED)
+				if(NOT ${_IS_IMPORTED} OR NOT ${_IS_BUNDLE})
+					if(${_IS_BUNDLE})
+						set(resign_binary_path "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>")
+					else()
+						set(resign_binary_path "$<TARGET_FILE:${TARGET_NAME}>")
+					endif()
+					string(APPEND INSTALL_RESIGN_CODE
+						"message(STATUS \"Code re-signing ${TARGET_NAME}...\")\n"
+						"cu_sign_binary(BINARY_PATH \"${resign_binary_path}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
+						"message(STATUS \"Done\")\n"
+					)
+					install(CODE
+						"\n${INSTALL_RESIGN_CODE}"
+					)
 				else()
-					set(resign_binary_path "$<TARGET_FILE:${TARGET_NAME}>")
+					message(STATUS "WARNING: Skipping code re-signing of ${TARGET_NAME} because it is an imported bundle. You have to copy the bundle inside the main bundle to be able to re-sign it with deep signing.")
 				endif()
-				string(APPEND INSTALL_RESIGN_CODE
-					"message(STATUS \"Code re-signing ${TARGET_NAME}...\")\n"
-					"cu_sign_binary(BINARY_PATH \"${resign_binary_path}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
-					"message(STATUS \"Done\")\n"
-				)
-				install(CODE
-					"\n${INSTALL_RESIGN_CODE}"
-				)
 			endif()
 		endif()
 	endif()
