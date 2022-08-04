@@ -1313,6 +1313,10 @@ endmacro()
 
 ###############################################################################
 # Setup common variables for a C/CXX project
+# WARNING, this is a macro, meaning variables defined inside this function will be accessible from the caller
+# Optional parameters:
+#  - "MARKETING_VERSION_DIGITS <digits count>" => Number of digits to use for the marketing version (defaults to 2)
+#  - "MARKETING_VERSION_POSTFIX <postfix name>" => Postfix string to add to the marketing version (Only alphanum, underscore, plus and minus are allowed)
 macro(cu_setup_project PRJ_NAME PRJ_VERSION PRJ_DESC)
 	message(STATUS "Defining project ${PRJ_NAME}")
 	project(${PRJ_NAME} LANGUAGES C CXX VERSION ${PRJ_VERSION})
@@ -1333,7 +1337,21 @@ endmacro()
 
 ###############################################################################
 # Define many variables based on project version
+# WARNING, this is a macro, meaning variables defined inside this function will be accessible from the caller
+# Optional parameters:
+#  - "MARKETING_VERSION_DIGITS <digits count>" => Number of digits to use for the marketing version (defaults to 2)
+#  - "MARKETING_VERSION_POSTFIX <postfix name>" => Postfix string to add to the marketing version (Only alphanum, underscore, plus and minus are allowed)
 macro(cu_setup_project_version_variables PRJ_VERSION)
+	# Parse optional arguments
+	cmake_parse_arguments(CUSPVV "" "MARKETING_VERSION_DIGITS;MARKETING_VERSION_POSTFIX" "" ${ARGN})
+
+	if(CUSPVV_MARKETING_VERSION_DIGITS)
+		set(CU_PROJECT_MARKETING_VERSION_DIGITS ${CUSPVV_MARKETING_VERSION_DIGITS})
+	endif()
+	if(CUSPVV_MARKETING_VERSION_POSTFIX)
+		set(CU_PROJECT_MARKETING_VERSION_POSTFIX ${CUSPVV_MARKETING_VERSION_POSTFIX})
+	endif()
+
 	# Define some project properties
 	if(NOT CU_PROJECT_COMPANYNAME)
 		set(CU_PROJECT_COMPANYNAME "${CU_COMPANY_NAME}")
