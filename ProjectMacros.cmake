@@ -1302,6 +1302,43 @@ function(_cu_vscode_write_workspace)
 endfunction()
 
 ###############################################################################
+# Helper function to build the marketing version string based on input variables
+function(cu_build_marketing_version OUTPUT_VAR PRJ_VERSION MARKETING_DIGITS MARKETING_POSTFIX)
+	# Split passed version
+	string(REGEX MATCHALL "([0-9]+)" VERSION_SPLIT "${PRJ_VERSION}")
+	list(LENGTH VERSION_SPLIT VERSION_SPLIT_LENGTH)
+	if(${VERSION_SPLIT_LENGTH} LESS 3)
+		message(FATAL_ERROR "Cannot parse version string")
+	endif()
+	if(NOT ${VERSION_SPLIT_LENGTH} EQUAL 4)
+		list(APPEND VERSION_SPLIT "0")
+	endif()
+
+	# Compute Marketing Version String
+	set(RESULT "")
+	if(${MARKETING_DIGITS} GREATER 0)
+		list(GET VERSION_SPLIT 0 RESULT)
+		if(${MARKETING_DIGITS} GREATER 1)
+			math(EXPR LOOP_COUNT "${MARKETING_DIGITS} - 1")
+			foreach(index RANGE 1 ${LOOP_COUNT})
+				list(GET VERSION_SPLIT ${index} LOOP_VERSION)
+				string(APPEND RESULT ".${LOOP_VERSION}")
+			endforeach()
+		endif()
+	endif()
+	if(DEFINED MARKETING_POSTFIX AND NOT "${MARKETING_POSTFIX}" STREQUAL "")
+		# Validate postfix format
+		if(NOT ${MARKETING_POSTFIX} MATCHES "^[a-zA-Z0-9_+-]+$")
+			message(FATAL_ERROR "MARKETING_POSTFIX contains invalid characters (Only alphanum, underscore, plus and minus are allowed): ${MARKETING_POSTFIX}")
+		endif()
+		string(APPEND RESULT "${MARKETING_POSTFIX}")
+	endif()
+
+	# Return result to the caller
+	set(${OUTPUT_VAR} "${RESULT}" PARENT_SCOPE)
+endfunction()
+
+###############################################################################
 # Macro to be called as the last cmake command from the main cmake file
 macro(cu_finalize)
 	# Allow generator expressions in install(CODE/SCRIPT)
@@ -1309,6 +1346,13 @@ macro(cu_finalize)
 
 	# Write vscode files
 	_cu_vscode_write_workspace()
+
+	# Check if MARKETING_VERSION_DIGITS and MARKETING_VERSION_POSTFIX are set (if not, it means gen_cmake doesn't match this file)
+	if(NOT DEFINED MARKETING_VERSION_DIGITS OR NOT DEFINED MARKETING_VERSION_POSTFIX)
+		message(WARNING "MARKETING_VERSION_DIGITS and MARKETING_VERSION_POSTFIX are not set, please upgrade bashUtils to the latest version")
+	endif()
+	# Dummy call to prevent warning (unused variable)
+	cu_build_marketing_version(DUMMY_MARKETING_VERSION "1.0.0.0" ${MARKETING_VERSION_DIGITS} "${MARKETING_VERSION_POSTFIX}")
 endmacro()
 
 ###############################################################################
@@ -1410,24 +1454,7 @@ macro(cu_setup_project_version_variables PRJ_VERSION)
 		set(CU_PROJECT_MARKETING_VERSION_DIGITS 2)
 		message(STATUS "CU_PROJECT_MARKETING_VERSION_DIGITS not set, using default value: ${CU_PROJECT_MARKETING_VERSION_DIGITS} digits")
 	endif()
-	set(CU_PROJECT_MARKETING_VERSION "")
-	if(${CU_PROJECT_MARKETING_VERSION_DIGITS} GREATER 0)
-		set(CU_PROJECT_MARKETING_VERSION "${CU_PROJECT_VERSION_MAJOR}")
-		if(${CU_PROJECT_MARKETING_VERSION_DIGITS} GREATER 1)
-			math(EXPR LOOP_COUNT "${CU_PROJECT_MARKETING_VERSION_DIGITS} - 1")
-			foreach(index RANGE 1 ${LOOP_COUNT})
-				list(GET CU_PROJECT_VERSION_SPLIT ${index} LOOP_VERSION)
-				string(APPEND CU_PROJECT_MARKETING_VERSION ".${LOOP_VERSION}")
-			endforeach()
-		endif()
-	endif()
-	if(DEFINED CU_PROJECT_MARKETING_VERSION_POSTFIX)
-		# Validate postfix format
-		if(NOT ${CU_PROJECT_MARKETING_VERSION_POSTFIX} MATCHES "^[a-zA-Z0-9_+-]+$")
-			message(FATAL_ERROR "CU_PROJECT_MARKETING_VERSION_POSTFIX contains invalid characters (Only alphanum, underscore, plus and minus are allowed)")
-		endif()
-		string(APPEND CU_PROJECT_MARKETING_VERSION "${CU_PROJECT_MARKETING_VERSION_POSTFIX}")
-	endif()
+	cu_build_marketing_version(CU_PROJECT_MARKETING_VERSION ${PRJ_VERSION} ${CU_PROJECT_MARKETING_VERSION_DIGITS} "${CU_PROJECT_MARKETING_VERSION_POSTFIX}")
 
 	# Compute a build number based on version
 	set(BETA_NUMBER_DIGITS_COUNT 5)
