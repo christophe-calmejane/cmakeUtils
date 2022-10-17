@@ -574,9 +574,10 @@ endfunction()
 # Optional parameters:
 #  - "NO_MAX_WARNINGS" => Will not call cu_set_maximum_warnings on the target
 #  - "NO_ALIAS_TARGET" => Will not create an alias target for the target
+#  - "ALIAS_NAME <name>" => Force the alias name for the target (ie. ${PROJECT_NAME}::name) (defaults to either 'static' or 'shared')
 function(cu_setup_library_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET" "" "" ${ARGN})
+	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET" "ALIAS_NAME" "" ${ARGN})
 
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -614,9 +615,13 @@ function(cu_setup_library_options TARGET_NAME)
 			endif()
 		endif()
 		# Add target alias
-		if (NOT CUSLO_NO_ALIAS_TARGET)
-			add_library(${PROJECT_NAME}::static ALIAS ${TARGET_NAME})
-			message(STATUS "Added static library alias for ${TARGET_NAME} (${PROJECT_NAME}::static)")
+		if(NOT CUSLO_NO_ALIAS_TARGET)
+			set(ALIAS_NAME "static")
+			if(DEFINED CUSLO_ALIAS_NAME)
+				set(ALIAS_NAME "${CUSLO_ALIAS_NAME}")
+			endif()
+			add_library(${PROJECT_NAME}::${ALIAS_NAME} ALIAS ${TARGET_NAME})
+			message(STATUS "Added alias for ${TARGET_NAME} (${PROJECT_NAME}::${ALIAS_NAME})")
 		endif()
 
 	# Shared library special options
@@ -643,9 +648,13 @@ function(cu_setup_library_options TARGET_NAME)
 			set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 		endif()
 		# Add target alias
-		if (NOT CUSLO_NO_ALIAS_TARGET)
-			add_library(${PROJECT_NAME}::shared ALIAS ${TARGET_NAME})
-			message(STATUS "Added shared library alias for ${TARGET_NAME} (${PROJECT_NAME}::shared)")
+		if(NOT CUSLO_NO_ALIAS_TARGET)
+			set(ALIAS_NAME "shared")
+			if(DEFINED CUSLO_ALIAS_NAME)
+				set(ALIAS_NAME "${CUSLO_ALIAS_NAME}")
+			endif()
+			add_library(${PROJECT_NAME}::${ALIAS_NAME} ALIAS ${TARGET_NAME})
+			message(STATUS "Added alias for ${TARGET_NAME} (${PROJECT_NAME}::${ALIAS_NAME})")
 		endif()
 
 	# Module library special options
@@ -668,7 +677,7 @@ function(cu_setup_library_options TARGET_NAME)
 		cu_setup_asan_options(${TARGET_NAME})
 	endif()
 
-	if (NOT CUSLO_NO_MAX_WARNINGS)
+	if(NOT CUSLO_NO_MAX_WARNINGS)
 		# Set full warnings (including treat warnings as error)
 		cu_set_maximum_warnings(${TARGET_NAME})
 	endif()
@@ -845,7 +854,7 @@ function(cu_setup_executable_options TARGET_NAME)
 		cu_setup_asan_options(${TARGET_NAME})
 	endif()
 
-	if (NOT CUSEO_NO_MAX_WARNINGS)
+	if(NOT CUSEO_NO_MAX_WARNINGS)
 		# Set full warnings (including treat warnings as error)
 		cu_set_maximum_warnings(${TARGET_NAME})
 	endif()
