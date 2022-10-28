@@ -1,5 +1,5 @@
 # CMake Utils
-Copyright (C) 2020, Emilien Vallot and Christophe Calmejane
+Copyright (C) 2020-2022, Emilien Vallot and Christophe Calmejane
 
 ## What is it?
 
