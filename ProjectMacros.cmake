@@ -304,11 +304,26 @@ function(cu_force_symbols_file TARGET_NAME)
 			endif()
 		else()
 			# If not using Xcode, we have to do the dSYM/strip steps manually (but only for binary targets)
-			if(${targetType} STREQUAL "SHARED_LIBRARY" OR ${targetType} STREQUAL "EXECUTABLE")
+			if(${targetType} STREQUAL "SHARED_LIBRARY")
+				cu_is_macos_framework(${TARGET_NAME} isFramework)
+				if(${isFramework})
+					set(DSYM_DST "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>.dSYM")
+				else()
+					set(DSYM_DST "$<TARGET_FILE:${TARGET_NAME}>.dSYM")
+				endif()
+			elseif(${targetType} STREQUAL "EXECUTABLE")
+				cu_is_macos_bundle(${TARGET_NAME} isBundle)
+				if(${isBundle})
+					set(DSYM_DST "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>.dSYM")
+				else()
+					set(DSYM_DST "$<TARGET_FILE:${TARGET_NAME}>.dSYM")
+				endif()
+			endif()
+			if(DEFINED DSYM_DST)
 				add_custom_command(
 					TARGET ${TARGET_NAME}
 					POST_BUILD
-					COMMAND dsymutil "$<TARGET_FILE:${TARGET_NAME}>"
+					COMMAND dsymutil "$<TARGET_FILE:${TARGET_NAME}>" -o "${DSYM_DST}"
 					COMMENT "Extracting dSYM for ${TARGET_NAME}"
 					VERBATIM
 				)
@@ -345,18 +360,36 @@ function(cu_copy_symbols TARGET_NAME)
 	elseif(APPLE)
 		if(${targetType} STREQUAL "SHARED_LIBRARY")
 			cu_is_macos_framework(${TARGET_NAME} isFramework)
-			if(${isFramework} AND "${CMAKE_GENERATOR}" STREQUAL "Xcode") # Only xcode seems to put dSYM at the same location than bundle/framework dir
-				install(FILES "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
+			if(${isFramework})
+				set(DSYM_SRC "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>.dSYM")
+				set(DSYM_DST_NAME "$<TARGET_BUNDLE_DIR_NAME:${TARGET_NAME}>.dSYM")
+				# Check for cmake minimum version
+				cmake_minimum_required(VERSION 3.24) # TARGET_BUNDLE_DIR_NAME added in cmake 3.24
 			else()
-				install(FILES "$<TARGET_FILE:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
+				set(DSYM_SRC "$<TARGET_FILE:${TARGET_NAME}>.dSYM")
+				set(DSYM_DST_NAME "$<TARGET_FILE_NAME:${TARGET_NAME}>.dSYM")
 			endif()
 		elseif(${targetType} STREQUAL "EXECUTABLE")
 			cu_is_macos_bundle(${TARGET_NAME} isBundle)
-			if(${isBundle} AND "${CMAKE_GENERATOR}" STREQUAL "Xcode") # Only xcode seems to put dSYM at the same location than bundle/framework dir
-				install(FILES "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
+			if(${isBundle})
+				set(DSYM_SRC "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>.dSYM")
+				set(DSYM_DST_NAME "$<TARGET_BUNDLE_DIR_NAME:${TARGET_NAME}>.dSYM")
+				# Check for cmake minimum version
+				cmake_minimum_required(VERSION 3.24) # TARGET_BUNDLE_DIR_NAME added in cmake 3.24
 			else()
-				install(FILES "$<TARGET_FILE:${TARGET_NAME}>.dSYM" DESTINATION "${SYMBOLS_DEST_PATH}" CONFIGURATIONS Release Debug)
+				set(DSYM_SRC "$<TARGET_FILE:${TARGET_NAME}>.dSYM")
+				set(DSYM_DST_NAME "$<TARGET_FILE_NAME:${TARGET_NAME}>.dSYM")
 			endif()
+		endif()
+		if(DEFINED DSYM_SRC)
+			add_custom_command(
+				TARGET ${TARGET_NAME}
+				POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_directory "${DSYM_SRC}" "${SYMBOLS_DEST_PATH}${DSYM_DST_NAME}"
+				COMMENT "Copying ${TARGET_NAME} symbols"
+				COMMENT "Extracting dSYM for ${TARGET_NAME}"
+				VERBATIM
+			)
 		endif()
 	endif()
 endfunction()
