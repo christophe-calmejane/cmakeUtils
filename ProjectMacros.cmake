@@ -1391,10 +1391,11 @@ macro(cu_finalize)
 
 	# Check if MARKETING_VERSION_DIGITS and MARKETING_VERSION_POSTFIX are set (if not, it means gen_cmake doesn't match this file)
 	if(NOT DEFINED MARKETING_VERSION_DIGITS OR NOT DEFINED MARKETING_VERSION_POSTFIX)
-		message(WARNING "MARKETING_VERSION_DIGITS and MARKETING_VERSION_POSTFIX are not set, please upgrade bashUtils to the latest version")
+		message(WARNING "MARKETING_VERSION_DIGITS and MARKETING_VERSION_POSTFIX are not set, please upgrade bashUtils to the latest version (ignore if gen_cmake/gen_install is not used)")
+	else()
+		# Dummy call to prevent warning (unused variable)
+		cu_build_marketing_version(DUMMY_MARKETING_VERSION "1.0.0.0" ${MARKETING_VERSION_DIGITS} "${MARKETING_VERSION_POSTFIX}")
 	endif()
-	# Dummy call to prevent warning (unused variable)
-	cu_build_marketing_version(DUMMY_MARKETING_VERSION "1.0.0.0" ${MARKETING_VERSION_DIGITS} "${MARKETING_VERSION_POSTFIX}")
 endmacro()
 
 ###############################################################################
