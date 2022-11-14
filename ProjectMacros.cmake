@@ -381,7 +381,8 @@ function(cu_copy_symbols TARGET_NAME)
 				set(DSYM_DST_NAME "$<TARGET_FILE_NAME:${TARGET_NAME}>.dSYM")
 			endif()
 		endif()
-		if(DEFINED DSYM_SRC)
+		# Ignoring iOS until https://gitlab.kitware.com/cmake/cmake/-/issues/24161 is fixed
+		if(DEFINED DSYM_SRC AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 			add_custom_command(
 				TARGET ${TARGET_NAME}
 				POST_BUILD
