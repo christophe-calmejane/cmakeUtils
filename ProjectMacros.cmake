@@ -385,6 +385,7 @@ function(cu_copy_symbols TARGET_NAME)
 			add_custom_command(
 				TARGET ${TARGET_NAME}
 				POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E make_directory "${SYMBOLS_DEST_PATH}"
 				COMMAND ${CMAKE_COMMAND} -E copy_directory "${DSYM_SRC}" "${SYMBOLS_DEST_PATH}${DSYM_DST_NAME}"
 				COMMENT "Copying ${TARGET_NAME} symbols"
 				COMMENT "Extracting dSYM for ${TARGET_NAME}"
