@@ -1521,3 +1521,10 @@ macro(cu_setup_project_version_variables PRJ_VERSION)
 		string(APPEND CU_BUILD_NUMBER "${CU_PROJECT_VERSION_BETA}")
 	endif()
 endmacro()
+
+# Print version message
+message(STATUS "CMake Macros v10.0")
+
+# Load and parse an optional cmake file, allowing overriding variables and other things before really processing the main CMakeLists.txt file
+# This file will only be loaded once by this script, by the main project repository, even if present in sub projects
+include("local_definitions.cmake" OPTIONAL)
