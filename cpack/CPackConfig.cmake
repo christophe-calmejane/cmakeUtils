@@ -11,6 +11,7 @@
 #  - USE_DRAGDROP_GENERATOR -> Use d&d on macOS instead of ProductBuild
 #  - CU_INSTALL_NSIS_HEADER_FILE_PATH -> Set to the path of the NSIS header image to use (Must be 150x57)
 #  - CU_INSTALL_MAIN_EXECUTABLE_NAME -> Set to the name of the main executable to use (defaults to "${PROJECT_NAME}")
+#  - CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE -> The type of uninstaller to embed: "NONE", "PKG" or "SCRIPT" (defaults to "PKG")
 # Delegate macros called:
 #  - configure_NSIS_extra_commands()
 #  - configure_NSIS_extra_components()
@@ -383,38 +384,53 @@ else()
 			set(MAIN_COMPONENT_UNINSTALLER_PKG_ID "${MAIN_COMPONENT_ID}.uninstaller.pkg")
 			set(APP_SUPPORT_FOLDER "/Library/Application Support/${CU_PROJECT_COMPANYNAME}/${CPACK_PACKAGE_NAME}")
 
-			# Create uninstall package
-			set(UNINSTALL_PROJECT_GENERATED_PKG "${CMAKE_BINARY_DIR}/uninstaller.pkg")
-			configure_file("${CU_CPACK_FOLDER}/productbuild/uninstaller/postinstall.in"	"${CMAKE_BINARY_DIR}/uninstaller/install-scripts/postinstall" @ONLY)
-			add_custom_command(OUTPUT "${UNINSTALL_PROJECT_GENERATED_PKG}"
-				COMMAND pkgbuild
-					--identifier ${MAIN_COMPONENT_UNINSTALLER_PKG_ID}
-					--version 1.0
-					--nopayload
-					--sign ${ESCAPED_IDENTITY}
-					--scripts "${CMAKE_BINARY_DIR}/uninstaller/install-scripts/"
-					"${UNINSTALL_PROJECT_GENERATED_PKG}"
-				DEPENDS
-					"${CU_CPACK_FOLDER}/productbuild/uninstaller/postinstall.in"
-					"${CMAKE_BINARY_DIR}/uninstaller/install-scripts/postinstall"
-			)
-			set(UNINSTALL_PROJECT_GENERATED_PRODUCT "${CMAKE_BINARY_DIR}/Uninstall ${CPACK_PACKAGE_NAME}.pkg")
-			configure_file("${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml.in" "${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml" @ONLY)
-			add_custom_command(OUTPUT "${UNINSTALL_PROJECT_GENERATED_PRODUCT}"
-				COMMAND productbuild
-					--identifier ${MAIN_COMPONENT_UNINSTALLER_ID}.product
-					--version 1.0
-					--sign ${ESCAPED_IDENTITY}
-					--distribution "${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
-					--package-path "${CMAKE_BINARY_DIR}"
-					${UNINSTALL_PROJECT_GENERATED_PRODUCT}
-				DEPENDS
-					"${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml.in"
-					"${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
-					${UNINSTALL_PROJECT_GENERATED_PKG}
-			)
-			add_custom_target(uninstall_pkg ALL DEPENDS "${UNINSTALL_PROJECT_GENERATED_PRODUCT}")
-			install(PROGRAMS "${UNINSTALL_PROJECT_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}")
+			if(NOT DEFINED CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE)
+				set(CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE "PKG")
+			endif()
+			if("${CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE}" STREQUAL "PKG")
+				# Create uninstall package
+				set(UNINSTALL_PROJECT_GENERATED_PKG "${CMAKE_BINARY_DIR}/uninstaller.pkg")
+				configure_file("${CU_CPACK_FOLDER}/productbuild/uninstaller/postinstall.in"	"${CMAKE_BINARY_DIR}/uninstaller/install-scripts/postinstall" @ONLY)
+				add_custom_command(OUTPUT "${UNINSTALL_PROJECT_GENERATED_PKG}"
+					COMMAND pkgbuild
+						--identifier ${MAIN_COMPONENT_UNINSTALLER_PKG_ID}
+						--version 1.0
+						--nopayload
+						--sign ${ESCAPED_IDENTITY}
+						--scripts "${CMAKE_BINARY_DIR}/uninstaller/install-scripts/"
+						"${UNINSTALL_PROJECT_GENERATED_PKG}"
+					DEPENDS
+						"${CU_CPACK_FOLDER}/productbuild/uninstaller/postinstall.in"
+						"${CMAKE_BINARY_DIR}/uninstaller/install-scripts/postinstall"
+				)
+				set(UNINSTALL_PROJECT_GENERATED_PRODUCT "${CMAKE_BINARY_DIR}/Uninstall ${CPACK_PACKAGE_NAME}.pkg")
+				configure_file("${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml.in" "${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml" @ONLY)
+				add_custom_command(OUTPUT "${UNINSTALL_PROJECT_GENERATED_PRODUCT}"
+					COMMAND productbuild
+						--identifier ${MAIN_COMPONENT_UNINSTALLER_ID}.product
+						--version 1.0
+						--sign ${ESCAPED_IDENTITY}
+						--distribution "${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
+						--package-path "${CMAKE_BINARY_DIR}"
+						${UNINSTALL_PROJECT_GENERATED_PRODUCT}
+					DEPENDS
+						"${CU_CPACK_FOLDER}/productbuild/uninstaller/install-distribution.xml.in"
+						"${CMAKE_BINARY_DIR}/uninstaller/install-distribution.xml"
+						${UNINSTALL_PROJECT_GENERATED_PKG}
+				)
+				add_custom_target(uninstall_pkg ALL DEPENDS "${UNINSTALL_PROJECT_GENERATED_PRODUCT}")
+				install(PROGRAMS "${UNINSTALL_PROJECT_GENERATED_PRODUCT}" DESTINATION "${MACOS_INSTALL_FOLDER}")
+
+			elseif("${CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE}" STREQUAL "SCRIPT")
+				message(FATAL_ERROR "'SCRIPT' value for CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE not supported yet")
+
+			elseif("${CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE}" STREQUAL "NONE")
+				message(STATUS "macOS uninstaller disabled")
+
+			else()
+				message(FATAL_ERROR "Unsupported CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE value: ${CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE}")
+
+			endif()
 
 			# Add extra commands
 			configure_PRODUCTBUILD_extra_commands()
