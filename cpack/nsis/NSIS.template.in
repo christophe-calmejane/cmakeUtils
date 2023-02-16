@@ -794,7 +794,7 @@ Function .onInstSuccess
 !ifdef BINARY_TO_RUN
 	StrCmp $ShouldLaunch "0" dont_run_binary
 	IfSilent 0 dont_run_binary
-		Exec "${BINARY_TO_RUN}"
+		Call RunAppAsUser
 dont_run_binary:
 !endif
 FunctionEnd
