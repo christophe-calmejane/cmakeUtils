@@ -549,6 +549,9 @@ FunctionEnd
 @CPACK_NSIS_INSTALLER_MUI_FINISHPAGE_RUN_CODE@
 !ifdef MUI_FINISHPAGE_RUN
   !define BINARY_TO_RUN "${MUI_FINISHPAGE_RUN}"
+  !ifndef MUI_FINISHPAGE_RUN_APP_WITH_SAME_PRIVILEGES_AS_INSTALLER
+    !define MUI_FINISHPAGE_RUN_FUNCTION "RunAppAsUser"
+  !endif
 !endif
 
 ;--------------------------------
@@ -777,6 +780,13 @@ Function InstallOptionsPage
 
 FunctionEnd
 
+
+;--------------------------------
+; run application if installation success
+; without admin privileges
+Function RunAppAsUser
+  Exec '"$WINDIR\explorer.exe" "${BINARY_TO_RUN}"'
+FunctionEnd
 
 ;--------------------------------
 ; run application if installation was silent

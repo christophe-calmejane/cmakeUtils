@@ -10,6 +10,7 @@
 #  - USE_IFW_GENERATOR -> Use IFW os-independent installer for all platforms
 #  - USE_DRAGDROP_GENERATOR -> Use d&d on macOS instead of ProductBuild
 #  - CU_INSTALL_NSIS_HEADER_FILE_PATH -> Set to the path of the NSIS header image to use (Must be 150x57)
+#  - CU_INSTALL_NSIS_RUN_APP_WITH_SAME_PRIVILEGES_AS_INSTALLER -> If set to TRUE, run the main executable with the same privileges as the installer (defaults to FALSE, ie 'run as logged user')
 #  - CU_INSTALL_MAIN_EXECUTABLE_NAME -> Set to the name of the main executable to use (defaults to "${PROJECT_NAME}")
 #  - CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE -> The type of uninstaller to embed: "NONE", "PKG" or "SCRIPT" (defaults to "PKG")
 # Delegate macros called:
@@ -324,6 +325,12 @@ else()
 			!define MUI_STARTMENUPAGE_DEFAULTFOLDER \\\"${PACKAGE_INSTALL_KEY}\\\"\n\
 			BrandingText \\\"${CPACK_PACKAGE_VENDOR} ${PROJECT_NAME}\\\"\n\
 		")
+
+		if(DEFINED CU_INSTALL_NSIS_RUN_APP_WITH_SAME_PRIVILEGES_AS_INSTALLER)
+			string(APPEND CPACK_NSIS_INSTALLER_MUI_ICON_CODE "\n\
+				!define MUI_FINISHPAGE_RUN_APP_WITH_SAME_PRIVILEGES_AS_INSTALLER\n\
+			")
+		endif()
 
 		# Add shortcuts during install
 		set(CPACK_NSIS_CREATE_ICONS_EXTRA "\
