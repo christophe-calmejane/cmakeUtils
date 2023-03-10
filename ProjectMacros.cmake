@@ -101,7 +101,43 @@ function(cu_private_get_target_resource_path_string TARGET_NAME OUT_VAR)
 	endif()
 endfunction()
 
-#
+# Sign a binary after build, using POST_BUILD rules
+# BINARY_NAME is only used to generate a unique cmake file
+function(cu_private_sign_postbuild_binary TARGET_NAME BINARY_PATH BINARY_NAME)
+	# Get signing options
+	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
+
+	# Expand options to individual parameters
+	string(REPLACE ";" " " SIGN_COMMAND_OPTIONS "${SIGN_COMMAND_OPTIONS}")
+
+	cu_is_macos_bundle(${TARGET_NAME} isBundle)
+	if(${isBundle})
+		set(binary_path "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>")
+	else()
+		set(binary_path "$<TARGET_FILE:${TARGET_NAME}>")
+	endif()
+
+	# Generate code-signing code
+	string(CONCAT CODESIGNING_CODE
+		"include(\"${CMAKE_MACROS_FOLDER}/helpers/SignBinary.cmake\")\n"
+		"cu_sign_binary(BINARY_PATH \"${BINARY_PATH}\" ${SIGN_COMMAND_OPTIONS})\n"
+	)
+
+	# Write to a cmake file
+	set(CODESIGN_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/codesign_$<CONFIG>_${BINARY_NAME}.cmake)
+	file(GENERATE
+		OUTPUT ${CODESIGN_SCRIPT}
+		CONTENT ${CODESIGNING_CODE}
+	)
+	# Run the codesign script as POST_BUILD command on the target
+	add_custom_command(TARGET ${TARGET_NAME}
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -P ${CODESIGN_SCRIPT}
+		VERBATIM
+	)
+endfunction()
+
+# Sign a binary after installation, using install rules
 function(cu_private_sign_installed_binary BINARY_PATH)
 	# Xcode already forces automatic signing, so only sign for the other cases
 	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
@@ -555,21 +591,30 @@ function(cu_set_executable_target_resource TARGET_NAME BINARY_TARGET_NAME DESTIN
 	# Parse arguments
 	cmake_parse_arguments(CUSRBT "INSTALL;SIGN" "" "" ${ARGN})
 
+	# Compute some paths
+	cu_private_get_target_resource_folder_name(${TARGET_NAME} resourceFolder)
+	cu_private_get_target_resource_path_string(${TARGET_NAME} resourcePath)
+
+	# Set executable file as a resource (do not forward the INSTALL parameter, it will be handled by cu_setup_deploy_runtime)
+	cu_set_resource_file(${TARGET_NAME} "$<TARGET_FILE:${BINARY_TARGET_NAME}>" "${DESTINATION_FOLDER}/$<TARGET_FILE_NAME:${BINARY_TARGET_NAME}>")
+
+	# Sign the executable (once copied) if requested
+	if(CUSRBT_SIGN)
+		# Xcode already forces automatic signing, so only sign for the other cases
+		if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
+			cu_private_sign_postbuild_binary(${TARGET_NAME} "${resourcePath}/${DESTINATION_FOLDER}/$<TARGET_FILE_NAME:${BINARY_TARGET_NAME}>" "${BINARY_TARGET_NAME}")
+		endif()
+	endif()
+
 	set(additionalParameters "")
 	if(CUSRBT_INSTALL)
 		list(APPEND additionalParameters "INSTALL")
 	endif()
-
-	# Set executable file as a resource
-	cu_set_resource_file(${TARGET_NAME} "$<TARGET_FILE:${BINARY_TARGET_NAME}>" "${DESTINATION_FOLDER}/$<TARGET_FILE_NAME:${BINARY_TARGET_NAME}>" ${additionalParameters})
-
 	if(CUSRBT_SIGN)
 		list(APPEND additionalParameters "SIGN")
 	endif()
 
 	# Deploy dependencies
-	cu_private_get_target_resource_folder_name(${TARGET_NAME} resourceFolder)
-	cu_private_get_target_resource_path_string(${TARGET_NAME} resourcePath)
 	cu_setup_deploy_runtime(${BINARY_TARGET_NAME} ${additionalParameters} DEPLOY_DESTINATION "${resourcePath}/${DESTINATION_FOLDER}" RUNTIME_DIR "${resourceFolder}/${DESTINATION_FOLDER}" ATTACH_TO_TARGET_POSTBUILD ${TARGET_NAME})
 endfunction()
 
@@ -961,6 +1006,7 @@ endfunction()
 #  - "RUNTIME_DIR <install directory>" => directory where to install RUNTIME file type (defaults to "bin")
 #  - "QT_MAJOR_VERSION <version>" => Qt major version (defaults to 5)
 #  - "EXPORT_TARGET" -> Export cmake target
+#  - "ATTACH_TO_TARGET_POSTBUILD <target>" => Attach deploy actions to the specified target instead of the target itself (required for IMPORTED targets)
 function(cu_setup_deploy_runtime TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -971,7 +1017,7 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	endif()
 
 	# Parse optional arguments
-	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION" "" ${ARGN})
+	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD" "" ${ARGN})
 
 	# Get signing options
 	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
@@ -1003,6 +1049,11 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 
 	get_target_property(targetImported ${TARGET_NAME} IMPORTED)
 
+	# If target is imported, make sure ATTACH_TO_TARGET_POSTBUILD is defined
+	if(${targetImported} AND NOT SDR_ATTACH_TO_TARGET_POSTBUILD)
+		message(FATAL_ERROR "ATTACH_TO_TARGET_POSTBUILD is required for imported targets")
+	endif()
+
 	# Sign the binary during post build if requested (but not for imported targets as they are already built)
 	if(SDR_SIGN AND NOT ${targetImported})
 		cu_private_setup_signing_command(${TARGET_NAME})
@@ -1020,13 +1071,16 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 				list(APPEND EXPORT_TARGET_COMMANDS EXPORT ${TARGET_NAME})
 			endif()
 		endif()
-		install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} ${EXPORT_TARGET_COMMANDS} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
 		if(${targetImported})
-			# We want to sign the imported target once installed (if requested)
-			if(SDR_SIGN)
+			cu_is_macos_bundle(${SDR_ATTACH_TO_TARGET_POSTBUILD} isAttachedToBundle)
+			# We want to install and sign the imported target but only if the target we are attached to is not a bundle (otherwise we assume TARGET_NAME is being copied inside the bundle)
+			if(SDR_SIGN AND NOT ${isAttachedToBundle})
+				install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} ${EXPORT_TARGET_COMMANDS} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
 				cu_private_sign_installed_binary("${RUNTIME_INSTALL_DIR}/$<TARGET_FILE_NAME:${TARGET_NAME}>")
 			endif()
 		else()
+			# Install the target
+			install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} ${EXPORT_TARGET_COMMANDS} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
 			if(${SDR_EXPORT_TARGET})
 				install(EXPORT ${TARGET_NAME} DESTINATION cmake)
 			endif()
