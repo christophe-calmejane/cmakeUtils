@@ -38,11 +38,12 @@ endfunction()
 #  - "SWIG_TARGET_PREFIX <prefix name to use>" => Force a specific prefix for the SWIG target instead of the default (TARGET_NAME)
 #  - "REQUIRED" => Flag indicating if an error should be thrown in case swig or a language is not found
 #  - "INSTALL_SUPPORT_FILES" => Flag indicating if support files are installed
+#  - "VERSION <version>" => Minimum version of SWIG required
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
 
-	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX" "LANGUAGES" ${ARGN})
+	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUSST_TARGET_NAME)
@@ -67,11 +68,11 @@ function(cu_setup_swig_target)
 		cmake_policy(SET CMP0122 NEW)
 	endif()
 
-	find_package(SWIG 4.0 COMPONENTS ${CUSST_LANGUAGES})
+	find_package(SWIG ${CUSST_VERSION} COMPONENTS ${CUSST_LANGUAGES})
 	if(NOT SWIG_FOUND AND SWIG_EXECUTABLE AND NOT SWIG_DIR AND WIN32)
 		_private_search_swig_dir_cygwin()
 		if(SWIG_DIR)
-			find_package(SWIG 4.0 COMPONENTS ${CUSST_LANGUAGES})
+			find_package(SWIG ${CUSST_VERSION} COMPONENTS ${CUSST_LANGUAGES})
 		endif()
 	endif()
 
