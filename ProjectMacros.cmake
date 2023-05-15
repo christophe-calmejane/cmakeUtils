@@ -777,8 +777,8 @@ function(cu_setup_library_options TARGET_NAME)
 	# Set xcode automatic codesigning
 	cu_setup_xcode_codesigning(${TARGET_NAME})
 
-	# Set BITCODE
-	cu_setup_bitcode(${TARGET_NAME})
+	# Set BITCODE => Actually don't set it up, it's deprecated
+	# cu_setup_bitcode(${TARGET_NAME})
 
 	# Set TARGET_SYSTEM_xxx compile definition
 	cu_set_target_system_definition(${TARGET_NAME})
@@ -986,8 +986,8 @@ function(cu_setup_executable_options TARGET_NAME)
 	# Set xcode automatic codesigning
 	cu_setup_xcode_codesigning(${TARGET_NAME})
 
-	# Set BITCODE
-	cu_setup_bitcode(${TARGET_NAME})
+	# Set BITCODE => Actually don't set it up, it's deprecated
+	# cu_setup_bitcode(${TARGET_NAME})
 
 	# Set TARGET_SYSTEM_xxx compile definition
 	cu_set_target_system_definition(${TARGET_NAME})
