@@ -39,11 +39,12 @@ endfunction()
 #  - "REQUIRED" => Flag indicating if an error should be thrown in case swig or a language is not found
 #  - "INSTALL_SUPPORT_FILES" => Flag indicating if support files are installed
 #  - "VERSION <version>" => Minimum version of SWIG required
+#  - "FILE_DEPENDENCIES <file> [<other file>...]" => List of files to add as dependencies of the SWIG target
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
 
-	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES" ${ARGN})
+	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES;FILE_DEPENDENCIES" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUSST_TARGET_NAME)
@@ -91,6 +92,9 @@ function(cu_setup_swig_target)
 				set(SWIG_TARGET_NAME ${CUSST_SWIG_TARGET_PREFIX}-${SWIG_LANG})
 			endif()
 			set(SWIG_BUNDLE_IDENTIFIER "${CU_REVERSE_DOMAIN_NAME}.${SWIG_TARGET_NAME}")
+			foreach(SWIG_FILE_DEPENDENCY ${CUSST_FILE_DEPENDENCIES})
+				set_property(SOURCE ${CUSST_INTERFACE_FILE} APPEND PROPERTY DEPENDS ${SWIG_FILE_DEPENDENCY})
+			endforeach()
 			message(STATUS "Generating SWIG bindings for ${SWIG_LANG}: ${SWIG_TARGET_NAME}")
 
 			# Create the target library as SHARED (required for dynamic loading) (Cannot use MODULE as it fails to generate a proper FRAMEWORK on iOS)
