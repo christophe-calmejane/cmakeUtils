@@ -33,7 +33,7 @@ endfunction()
 # Mandatory parameters:
 #  - "TARGET_NAME <target name>" => Name of the target to link against
 #  - "INTERFACE_FILE <SWIG interface file>" => Path of the SWIG interface file
-#  - "LANGUAGES <target copy directory>" => Directory where to copy runtime dependencies
+#  - "LANGUAGES <target language> [<other target language>...]" => List of target languages to generate bindings for
 # Optional parameters:
 #  - "SWIG_TARGET_PREFIX <prefix name to use>" => Force a specific prefix for the SWIG target instead of the default (TARGET_NAME)
 #  - "REQUIRED" => Flag indicating if an error should be thrown in case swig or a language is not found
