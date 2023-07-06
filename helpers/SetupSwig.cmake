@@ -40,11 +40,12 @@ endfunction()
 #  - "INSTALL_SUPPORT_FILES" => Flag indicating if support files are installed
 #  - "VERSION <version>" => Minimum version of SWIG required
 #  - "FILE_DEPENDENCIES <file> [<other file>...]" => List of files to add as dependencies of the SWIG target
+#  - "INSTALL_CONFIGURATIONS <List of install configuration>" -> Select the configurations for which the install rules will be generated (Default: Release)
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
 
-	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES;FILE_DEPENDENCIES" ${ARGN})
+	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUSST_TARGET_NAME)
@@ -63,6 +64,14 @@ function(cu_setup_swig_target)
 
 	if(NOT CUSST_LANGUAGES)
 		message(FATAL_ERROR "LANGUAGES required: Specify at least one SWIG language")
+	endif()
+
+	# Create default configurations list
+	set(configurationsList "Release")
+
+	# If configurations are provided, use them instead
+	if(CUSST_INSTALL_CONFIGURATIONS)
+		set(configurationsList ${CUSST_INSTALL_CONFIGURATIONS})
 	endif()
 
 	if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
@@ -126,13 +135,13 @@ function(cu_setup_swig_target)
 
 			# Should we install support files
 			if(CUSST_INSTALL_SUPPORT_FILES)
-				install(DIRECTORY "${SWIG_FOLDER}/${SWIG_LANG}.files/" CONFIGURATIONS Release DESTINATION "swig/${SWIG_LANG}")
+				install(DIRECTORY "${SWIG_FOLDER}/${SWIG_LANG}.files/" CONFIGURATIONS ${configurationsList} DESTINATION "swig/${SWIG_LANG}")
 			endif()
 		endforeach()
 
 		# Should we install support files
 		if(CUSST_INSTALL_SUPPORT_FILES)
-			install(FILES "${CUSST_INTERFACE_FILE}" CONFIGURATIONS Release DESTINATION swig)
+			install(FILES "${CUSST_INTERFACE_FILE}" CONFIGURATIONS ${configurationsList} DESTINATION swig)
 		endif()
 
 	else()
