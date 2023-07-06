@@ -796,11 +796,27 @@ endfunction()
 
 ###############################################################################
 # Setup install rules for header files
+# Optional parameters:
+#  - "CONFIGURATIONS <List of install configuration>" -> Select the configurations for which the install rules will be generated (Default: Release)
 function(cu_setup_headers_install_rules FILES_LIST INCLUDE_ABSOLUTE_BASE_FOLDER)
+	# Parse arguments
+	cmake_parse_arguments(CUSHIR "" "" "CONFIGURATIONS" ${ARGN})
+
+	# Create default configurations list
+	set(configurationsList "Release")
+
+	# If configurations are provided, use them instead
+	if(CUSHIR_CONFIGURATIONS)
+		set(configurationsList ${CUSHIR_CONFIGURATIONS})
+	endif()
+
+	# And remove duplicates
+	list(REMOVE_DUPLICATES configurationsList)
+
 	foreach(f ${FILES_LIST})
 		get_filename_component(dir ${f} DIRECTORY)
 		file(RELATIVE_PATH dir ${INCLUDE_ABSOLUTE_BASE_FOLDER} ${dir})
-		install(FILES ${f} CONFIGURATIONS Release DESTINATION include/${dir})
+		install(FILES ${f} CONFIGURATIONS ${configurationsList} DESTINATION include/${dir})
 	endforeach()
 endfunction()
 
