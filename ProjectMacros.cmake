@@ -853,6 +853,15 @@ function(cu_setup_deploy_library TARGET_NAME)
 				install(EXPORT ${TARGET_NAME} DESTINATION cmake)
 			endif()
 
+		# Module install rules
+		elseif(${targetType} STREQUAL "MODULE_LIBRARY")
+			# Check for SIGN option
+			if(SDL_SIGN)
+				cu_private_setup_signing_command(${TARGET_NAME})
+			endif()
+
+			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
 		# Interface library install rules
 		elseif(${targetType} STREQUAL "INTERFACE_LIBRARY")
 			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME})
