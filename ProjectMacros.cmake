@@ -823,15 +823,22 @@ endfunction()
 ###############################################################################
 # Setup install rules for a library target, as well a signing if specified
 # Optional parameters:
-#  - INSTALL -> Generate CMake install rules
-#  - SIGN -> Code sign (ignored for everything but SHARED_LIBRARY)
-#  - NO_EXPORT_TARGET -> Do not export cmake target
+#  - "INSTALL" -> Generate CMake install rules
+#  - "SIGN" -> Code sign (ignored for everything but SHARED_LIBRARY)
+#  - "RUNTIME_DIR <install directory>" -> directory where to install RUNTIME file type (defaults to "bin")
+#  - "NO_EXPORT_TARGET" -> Do not export cmake target
 function(cu_setup_deploy_library TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
 
 	# Parse arguments
-	cmake_parse_arguments(SDL "INSTALL;SIGN;NO_EXPORT_TARGET" "" "" ${ARGN})
+	cmake_parse_arguments(SDL "INSTALL;SIGN;NO_EXPORT_TARGET" "RUNTIME_DIR" "" ${ARGN})
+
+	# Install directories
+	set(RUNTIME_INSTALL_DIR "bin")
+	if(SDL_RUNTIME_DIR)
+		set(RUNTIME_INSTALL_DIR "${SDL_RUNTIME_DIR}")
+	endif()
 
 	if(SDL_INSTALL)
 		# Static library install rules
@@ -848,7 +855,7 @@ function(cu_setup_deploy_library TARGET_NAME)
 				cu_private_setup_signing_command(${TARGET_NAME})
 			endif()
 
-			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib FRAMEWORK DESTINATION lib)
+			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR} LIBRARY DESTINATION lib ARCHIVE DESTINATION lib FRAMEWORK DESTINATION lib)
 			if(NOT SDL_NO_EXPORT_TARGET)
 				install(EXPORT ${TARGET_NAME} DESTINATION cmake)
 			endif()
@@ -860,7 +867,7 @@ function(cu_setup_deploy_library TARGET_NAME)
 				cu_private_setup_signing_command(${TARGET_NAME})
 			endif()
 
-			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+			install(TARGETS ${TARGET_NAME} EXPORT ${TARGET_NAME} LIBRARY DESTINATION ${RUNTIME_INSTALL_DIR}) # Module libraries are always shared
 
 		# Interface library install rules
 		elseif(${targetType} STREQUAL "INTERFACE_LIBRARY")
@@ -1027,11 +1034,11 @@ endfunction()
 #  - "INSTALL" -> Generate CMake install rules
 #  - "SIGN"-> Code sign all binaries
 #  - "NO_DEPENDENCIES" -> Do not copy/install/sign dependencies
-#  - "BUNDLE_DIR <install directory>" => directory where to install BUNDLE file type (defaults to ".")
-#  - "RUNTIME_DIR <install directory>" => directory where to install RUNTIME file type (defaults to "bin")
-#  - "QT_MAJOR_VERSION <version>" => Qt major version (defaults to 5)
+#  - "BUNDLE_DIR <install directory>" -> directory where to install BUNDLE file type (defaults to ".")
+#  - "RUNTIME_DIR <install directory>" -> directory where to install RUNTIME file type (defaults to "bin")
+#  - "QT_MAJOR_VERSION <version>" -> Qt major version (defaults to 5)
 #  - "EXPORT_TARGET" -> Export cmake target
-#  - "ATTACH_TO_TARGET_POSTBUILD <target>" => Attach deploy actions to the specified target instead of the target itself (required for IMPORTED targets)
+#  - "ATTACH_TO_TARGET_POSTBUILD <target>" -> Attach deploy actions to the specified target instead of the target itself (required for IMPORTED targets)
 function(cu_setup_deploy_runtime TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
