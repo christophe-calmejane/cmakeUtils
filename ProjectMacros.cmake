@@ -482,6 +482,19 @@ function(cu_setup_bitcode TARGET_NAME)
 endfunction()
 
 ###############################################################################
+# Setup xcode scheme
+function(cu_setup_xcode_scheme TARGET_NAME)
+	if(APPLE)
+		if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+			# Enable scheme generation
+			set_target_properties(${TARGET_NAME} PROPERTIES XCODE_GENERATE_SCHEME YES)
+			# Disable "Allow debugging when using document Versions Browser" which prevents xcode from passing args to the target
+			set_target_properties(${TARGET_NAME} PROPERTIES XCODE_SCHEME_DEBUG_DOCUMENT_VERSIONING NO)
+		endif()
+	endif()
+endfunction()
+
+###############################################################################
 # Set Precompiled Headers on a target
 function(cu_set_precompiled_headers TARGET_NAME HEADER_NAME)
 	# Currently, only activating for MSVC
@@ -1020,6 +1033,9 @@ function(cu_setup_executable_options TARGET_NAME)
 
 	# Set BITCODE => Actually don't set it up, it's deprecated
 	# cu_setup_bitcode(${TARGET_NAME})
+
+	# Set xcode scheme
+	cu_setup_xcode_scheme(${TARGET_NAME})
 
 	# Set TARGET_SYSTEM_xxx compile definition
 	cu_set_target_system_definition(${TARGET_NAME})
