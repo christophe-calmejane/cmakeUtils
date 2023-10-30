@@ -1058,6 +1058,7 @@ endfunction()
 #  - "BUNDLE_DIR <install directory>" -> directory where to install BUNDLE file type (defaults to ".")
 #  - "RUNTIME_DIR <install directory>" -> directory where to install RUNTIME file type (defaults to "bin")
 #  - "QT_MAJOR_VERSION <version>" -> Qt major version (defaults to 5)
+#  - "QML_DIR <qml directory>" -> directory containing the qml source files of the target (defaults to ".")
 #  - "EXPORT_TARGET" -> Export cmake target
 #  - "ATTACH_TO_TARGET_POSTBUILD <target>" -> Attach deploy actions to the specified target instead of the target itself (required for IMPORTED targets)
 function(cu_setup_deploy_runtime TARGET_NAME)
@@ -1070,7 +1071,7 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	endif()
 
 	# Parse optional arguments
-	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD" "" ${ARGN})
+	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD;QML_DIR" "" ${ARGN})
 
 	# Get signing options
 	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
@@ -1095,9 +1096,14 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 		set(RUNTIME_INSTALL_DIR "${SDR_RUNTIME_DIR}")
 	endif()
 
+	set(QML_DIR_ARG "")
+	if(SDR_QML_DIR)
+		set(QML_DIR_ARG QML_DIR ${SDR_QML_DIR})
+	endif()
+
 	# Deploy runtime dependencies
 	if(NOT ${SDR_NO_DEPENDENCIES})
-		cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} INSTALL_DESTINATION ${RUNTIME_INSTALL_DIR} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION})
+		cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} INSTALL_DESTINATION ${RUNTIME_INSTALL_DIR} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION} ${QML_DIR_ARG})
 	endif()
 
 	get_target_property(targetImported ${TARGET_NAME} IMPORTED)
