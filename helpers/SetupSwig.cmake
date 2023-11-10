@@ -77,9 +77,9 @@ function(cu_setup_swig_target)
 		set(configurationsList ${CUSST_INSTALL_CONFIGURATIONS})
 	endif()
 
-	if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
-		cmake_policy(SET CMP0122 NEW)
-	endif()
+	# Check for cmake minimum version and set policy
+	cmake_minimum_required(VERSION 3.21) # https://gitlab.kitware.com/cmake/cmake/-/issues/21542 fixed in cmake 3.21
+	cmake_policy(SET CMP0122 NEW)
 
 	find_package(SWIG ${CUSST_VERSION} COMPONENTS ${CUSST_LANGUAGES})
 	if(NOT SWIG_FOUND AND SWIG_EXECUTABLE AND NOT SWIG_DIR AND WIN32)
@@ -140,9 +140,6 @@ function(cu_setup_swig_target)
 
 			# Create the target library as SHARED (required for dynamic loading) (Cannot use MODULE as it fails to generate a proper FRAMEWORK on iOS)
 			swig_add_library(${SWIG_TARGET_NAME} TYPE SHARED LANGUAGE ${SWIG_LANG} SOURCES ${CUSST_INTERFACE_FILE} OUTFILE_DIR "${SWIG_FOLDER}" OUTPUT_DIR "${SWIG_FOLDER}/${SWIG_LANG}.files")
-
-			# Force the output prefix until https://gitlab.kitware.com/cmake/cmake/-/issues/21542 is fixed
-			set_property(TARGET ${SWIG_TARGET_NAME} PROPERTY PREFIX "${CMAKE_SHARED_LIBRARY_PREFIX}")
 
 			# Set compile flags
 			#set_property(TARGET ${SWIG_TARGET_NAME} PROPERTY SWIG_COMPILE_DEFINITIONS ${SWIG_COMPILE_FLAGS})
