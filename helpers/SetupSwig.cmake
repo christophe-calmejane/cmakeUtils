@@ -41,11 +41,14 @@ endfunction()
 #  - "VERSION <version>" => Minimum version of SWIG required
 #  - "FILE_DEPENDENCIES <file> [<other file>...]" => List of files to add as dependencies of the SWIG target
 #  - "INSTALL_CONFIGURATIONS <List of install configuration>" -> Select the configurations for which the install rules will be generated (Default: Release)
+#  - "INTERFACE_FILE_COMPILE_OPTIONS_CSHARP <List of compile options>" -> List of compile options to add to the SWIG interface file for C#
+#  - "INTERFACE_FILE_COMPILE_OPTIONS_LUA <List of compile options>" -> List of compile options to add to the SWIG interface file for LUA
+#  - "INTERFACE_FILE_COMPILE_OPTIONS_PYTHON <List of compile options>" -> List of compile options to add to the SWIG interface file for PYTHON
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
 
-	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS" ${ARGN})
+	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS;INTERFACE_FILE_COMPILE_OPTIONS_CSHARP;INTERFACE_FILE_COMPILE_OPTIONS_LUA;INTERFACE_FILE_COMPILE_OPTIONS_PYTHON" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUSST_TARGET_NAME)
@@ -92,6 +95,10 @@ function(cu_setup_swig_target)
 		set(UseSWIG_MODULE_VERSION 2)
 		set_property(SOURCE ${CUSST_INTERFACE_FILE} PROPERTY CPLUSPLUS ON)
 
+		# Add dependencies to the interface file (globally for all languages)
+		foreach(SWIG_FILE_DEPENDENCY ${CUSST_FILE_DEPENDENCIES})
+			set_property(SOURCE ${CUSST_INTERFACE_FILE} APPEND PROPERTY DEPENDS ${SWIG_FILE_DEPENDENCY})
+		endforeach()
 		# Generate a target for each supported swig languages
 		foreach(SWIG_LANG ${CUSST_LANGUAGES})
 			# Define some variables
@@ -101,10 +108,35 @@ function(cu_setup_swig_target)
 				set(SWIG_TARGET_NAME ${CUSST_SWIG_TARGET_PREFIX}-${SWIG_LANG})
 			endif()
 			set(SWIG_BUNDLE_IDENTIFIER "${CU_REVERSE_DOMAIN_NAME}.${SWIG_TARGET_NAME}")
-			foreach(SWIG_FILE_DEPENDENCY ${CUSST_FILE_DEPENDENCIES})
-				set_property(SOURCE ${CUSST_INTERFACE_FILE} APPEND PROPERTY DEPENDS ${SWIG_FILE_DEPENDENCY})
-			endforeach()
 			message(STATUS "Generating SWIG bindings for ${SWIG_LANG}: ${SWIG_TARGET_NAME}")
+
+			# We must set swig definition file compile options per language
+			set(SWIG_FILE_COMPILE_OPTIONS "")
+			# If building as a framework, force the output name
+			# If swig file compile options are provided, add them to the SWIG_FILE_COMPILE_OPTIONS list
+			if(${SWIG_LANG} STREQUAL "csharp")
+				if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS_CSHARP)
+					foreach(OPT ${CUSST_INTERFACE_FILE_COMPILE_OPTIONS_CSHARP})
+						list(APPEND SWIG_FILE_COMPILE_OPTIONS ${OPT})
+					endforeach()
+				endif()
+			elseif(${SWIG_LANG} STREQUAL "lua")
+				if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS_LUA)
+					foreach(OPT ${CUSST_INTERFACE_FILE_COMPILE_OPTIONS_LUA})
+						list(APPEND SWIG_FILE_COMPILE_OPTIONS ${OPT})
+					endforeach()
+				endif()
+			elseif(${SWIG_LANG} STREQUAL "python")
+				if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS_PYTHON)
+					foreach(OPT ${CUSST_INTERFACE_FILE_COMPILE_OPTIONS_PYTHON})
+						list(APPEND SWIG_FILE_COMPILE_OPTIONS ${OPT})
+					endforeach()
+				endif()
+			endif()
+			# If we have some compile options for the swig definition file, set them
+			if(SWIG_FILE_COMPILE_OPTIONS)
+				set_property(SOURCE ${CUSST_INTERFACE_FILE} PROPERTY COMPILE_OPTIONS ${SWIG_FILE_COMPILE_OPTIONS})
+			endif()
 
 			# Create the target library as SHARED (required for dynamic loading) (Cannot use MODULE as it fails to generate a proper FRAMEWORK on iOS)
 			swig_add_library(${SWIG_TARGET_NAME} TYPE SHARED LANGUAGE ${SWIG_LANG} SOURCES ${CUSST_INTERFACE_FILE} OUTFILE_DIR "${SWIG_FOLDER}" OUTPUT_DIR "${SWIG_FOLDER}/${SWIG_LANG}.files")
