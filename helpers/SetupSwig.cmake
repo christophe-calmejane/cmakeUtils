@@ -95,10 +95,18 @@ function(cu_setup_swig_target)
 		set(UseSWIG_MODULE_VERSION 2)
 		set_property(SOURCE ${CUSST_INTERFACE_FILE} PROPERTY CPLUSPLUS ON)
 
+		# If building for iOS we must create a framework (so it's embedded in the app bundle, shared library are not allowed)
+		if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+			set(BUILD_AS_MACOSX_FRAMEWORK TRUE)
+		else()
+			set(BUILD_AS_MACOSX_FRAMEWORK FALSE)
+		endif()
+
 		# Add dependencies to the interface file (globally for all languages)
 		foreach(SWIG_FILE_DEPENDENCY ${CUSST_FILE_DEPENDENCIES})
 			set_property(SOURCE ${CUSST_INTERFACE_FILE} APPEND PROPERTY DEPENDS ${SWIG_FILE_DEPENDENCY})
 		endforeach()
+
 		# Generate a target for each supported swig languages
 		foreach(SWIG_LANG ${CUSST_LANGUAGES})
 			# Define some variables
@@ -113,6 +121,10 @@ function(cu_setup_swig_target)
 			# We must set swig definition file compile options per language
 			set(SWIG_FILE_COMPILE_OPTIONS "")
 			# If building as a framework, force the output name
+# Not needed anymore, it looks like swig_add_library is now able to properly set the dllimport value
+#			if(BUILD_AS_MACOSX_FRAMEWORK)
+#				list(APPEND SWIG_FILE_COMPILE_OPTIONS -dllimport "${SWIG_TARGET_NAME}.framework/${SWIG_TARGET_NAME}")
+#			endif()
 			# If swig file compile options are provided, add them to the SWIG_FILE_COMPILE_OPTIONS list
 			if(${SWIG_LANG} STREQUAL "csharp")
 				if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS_CSHARP)
@@ -150,8 +162,8 @@ function(cu_setup_swig_target)
 			# Link with specified target
 			swig_link_libraries(${SWIG_TARGET_NAME} PRIVATE ${CUSST_TARGET_NAME})
 
-			# On macOS build as a Framework
-			if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+			# If building as a framework, set the framework properties
+			if(BUILD_AS_MACOSX_FRAMEWORK)
 				set_target_properties(${SWIG_TARGET_NAME} PROPERTIES
 					FRAMEWORK TRUE
 					XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${SWIG_BUNDLE_IDENTIFIER}"
