@@ -41,11 +41,14 @@ endfunction()
 #  - "VERSION <version>" => Minimum version of SWIG required
 #  - "FILE_DEPENDENCIES <file> [<other file>...]" => List of files to add as dependencies of the SWIG target
 #  - "INSTALL_CONFIGURATIONS <List of install configuration>" -> Select the configurations for which the install rules will be generated (Default: Release)
+#  - "INTERFACE_FILE_COMPILE_OPTIONS_CSHARP <List of compile options>" -> List of compile options to add to the SWIG interface file for C#
+#  - "INTERFACE_FILE_COMPILE_OPTIONS_LUA <List of compile options>" -> List of compile options to add to the SWIG interface file for LUA
+#  - "INTERFACE_FILE_COMPILE_OPTIONS_PYTHON <List of compile options>" -> List of compile options to add to the SWIG interface file for PYTHON
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
 
-	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS" ${ARGN})
+	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS;INTERFACE_FILE_COMPILE_OPTIONS_CSHARP;INTERFACE_FILE_COMPILE_OPTIONS_LUA;INTERFACE_FILE_COMPILE_OPTIONS_PYTHON" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUSST_TARGET_NAME)
@@ -74,9 +77,9 @@ function(cu_setup_swig_target)
 		set(configurationsList ${CUSST_INSTALL_CONFIGURATIONS})
 	endif()
 
-	if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
-		cmake_policy(SET CMP0122 NEW)
-	endif()
+	# Check for cmake minimum version and set policy
+	cmake_minimum_required(VERSION 3.21) # https://gitlab.kitware.com/cmake/cmake/-/issues/21542 fixed in cmake 3.21
+	cmake_policy(SET CMP0122 NEW)
 
 	find_package(SWIG ${CUSST_VERSION} COMPONENTS ${CUSST_LANGUAGES})
 	if(NOT SWIG_FOUND AND SWIG_EXECUTABLE AND NOT SWIG_DIR AND WIN32)
@@ -92,6 +95,18 @@ function(cu_setup_swig_target)
 		set(UseSWIG_MODULE_VERSION 2)
 		set_property(SOURCE ${CUSST_INTERFACE_FILE} PROPERTY CPLUSPLUS ON)
 
+		# If building for iOS we must create a framework (so it's embedded in the app bundle, shared library are not allowed)
+		if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+			set(BUILD_AS_MACOSX_FRAMEWORK TRUE)
+		else()
+			set(BUILD_AS_MACOSX_FRAMEWORK FALSE)
+		endif()
+
+		# Add dependencies to the interface file (globally for all languages)
+		foreach(SWIG_FILE_DEPENDENCY ${CUSST_FILE_DEPENDENCIES})
+			set_property(SOURCE ${CUSST_INTERFACE_FILE} APPEND PROPERTY DEPENDS ${SWIG_FILE_DEPENDENCY})
+		endforeach()
+
 		# Generate a target for each supported swig languages
 		foreach(SWIG_LANG ${CUSST_LANGUAGES})
 			# Define some variables
@@ -101,16 +116,42 @@ function(cu_setup_swig_target)
 				set(SWIG_TARGET_NAME ${CUSST_SWIG_TARGET_PREFIX}-${SWIG_LANG})
 			endif()
 			set(SWIG_BUNDLE_IDENTIFIER "${CU_REVERSE_DOMAIN_NAME}.${SWIG_TARGET_NAME}")
-			foreach(SWIG_FILE_DEPENDENCY ${CUSST_FILE_DEPENDENCIES})
-				set_property(SOURCE ${CUSST_INTERFACE_FILE} APPEND PROPERTY DEPENDS ${SWIG_FILE_DEPENDENCY})
-			endforeach()
 			message(STATUS "Generating SWIG bindings for ${SWIG_LANG}: ${SWIG_TARGET_NAME}")
+
+			# We must set swig definition file compile options per language
+			set(SWIG_FILE_COMPILE_OPTIONS "")
+			# If building as a framework, force the output name
+# Not needed anymore, it looks like swig_add_library is now able to properly set the dllimport value
+#			if(BUILD_AS_MACOSX_FRAMEWORK)
+#				list(APPEND SWIG_FILE_COMPILE_OPTIONS -dllimport "${SWIG_TARGET_NAME}.framework/${SWIG_TARGET_NAME}")
+#			endif()
+			# If swig file compile options are provided, add them to the SWIG_FILE_COMPILE_OPTIONS list
+			if(${SWIG_LANG} STREQUAL "csharp")
+				if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS_CSHARP)
+					foreach(OPT ${CUSST_INTERFACE_FILE_COMPILE_OPTIONS_CSHARP})
+						list(APPEND SWIG_FILE_COMPILE_OPTIONS ${OPT})
+					endforeach()
+				endif()
+			elseif(${SWIG_LANG} STREQUAL "lua")
+				if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS_LUA)
+					foreach(OPT ${CUSST_INTERFACE_FILE_COMPILE_OPTIONS_LUA})
+						list(APPEND SWIG_FILE_COMPILE_OPTIONS ${OPT})
+					endforeach()
+				endif()
+			elseif(${SWIG_LANG} STREQUAL "python")
+				if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS_PYTHON)
+					foreach(OPT ${CUSST_INTERFACE_FILE_COMPILE_OPTIONS_PYTHON})
+						list(APPEND SWIG_FILE_COMPILE_OPTIONS ${OPT})
+					endforeach()
+				endif()
+			endif()
+			# If we have some compile options for the swig definition file, set them
+			if(SWIG_FILE_COMPILE_OPTIONS)
+				set_property(SOURCE ${CUSST_INTERFACE_FILE} PROPERTY COMPILE_OPTIONS ${SWIG_FILE_COMPILE_OPTIONS})
+			endif()
 
 			# Create the target library as SHARED (required for dynamic loading) (Cannot use MODULE as it fails to generate a proper FRAMEWORK on iOS)
 			swig_add_library(${SWIG_TARGET_NAME} TYPE SHARED LANGUAGE ${SWIG_LANG} SOURCES ${CUSST_INTERFACE_FILE} OUTFILE_DIR "${SWIG_FOLDER}" OUTPUT_DIR "${SWIG_FOLDER}/${SWIG_LANG}.files")
-
-			# Force the output prefix until https://gitlab.kitware.com/cmake/cmake/-/issues/21542 is fixed
-			set_property(TARGET ${SWIG_TARGET_NAME} PROPERTY PREFIX "${CMAKE_SHARED_LIBRARY_PREFIX}")
 
 			# Set compile flags
 			#set_property(TARGET ${SWIG_TARGET_NAME} PROPERTY SWIG_COMPILE_DEFINITIONS ${SWIG_COMPILE_FLAGS})
@@ -121,8 +162,8 @@ function(cu_setup_swig_target)
 			# Link with specified target
 			swig_link_libraries(${SWIG_TARGET_NAME} PRIVATE ${CUSST_TARGET_NAME})
 
-			# On macOS build as a Framework
-			if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+			# If building as a framework, set the framework properties
+			if(BUILD_AS_MACOSX_FRAMEWORK)
 				set_target_properties(${SWIG_TARGET_NAME} PROPERTIES
 					FRAMEWORK TRUE
 					XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${SWIG_BUNDLE_IDENTIFIER}"
