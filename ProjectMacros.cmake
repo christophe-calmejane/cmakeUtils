@@ -743,7 +743,7 @@ function(cu_setup_library_options TARGET_NAME)
 		endif()
 		# Generate so-version on Linux and macOS
 		if(NOT WIN32)
-			set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+			set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${CU_PROJECT_CMAKEVERSION_STRING} SOVERSION ${CU_PROJECT_VERSION_MAJOR})
 		endif()
 		# Add target alias
 		if(NOT CUSLO_NO_ALIAS_TARGET)
