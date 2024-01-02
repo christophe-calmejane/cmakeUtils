@@ -1,0 +1,232 @@
+{
+	"version": 9,
+	"include": [
+		"CMakePresets-Common.json",
+		"${sourceDir}/CMakePresets-Project.json"
+	],
+	"configurePresets": [
+		{
+			"name": "win_x86_ninja_debug",
+			"inherits": [
+				"project",
+				"windows",
+				"x86",
+				"ninja",
+				"debug"
+			],
+			"displayName": "Windows x86 Debug",
+			"description": "Windows, x86, Ninja, Debug",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "win_x86_ninja_release",
+			"inherits": [
+				"project",
+				"windows",
+				"x86",
+				"ninja",
+				"release"
+			],
+			"displayName": "Windows x86 Release",
+			"description": "Windows, x86, Ninja, Release",
+			"binaryDir": "${sourceDir}/_build_${presetName}",
+			"installDir": "${sourceDir}/_build_${presetName}/Install"
+		},
+		{
+			"name": "win_x64_ninja_debug",
+			"inherits": [
+				"project",
+				"windows",
+				"x64",
+				"ninja",
+				"debug"
+			],
+			"displayName": "Windows x64 Debug",
+			"description": "Windows, x64, Ninja, Debug",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "win_x64_ninja_release",
+			"inherits": [
+				"project",
+				"windows",
+				"x64",
+				"ninja",
+				"release"
+			],
+			"displayName": "Windows x64 Release",
+			"description": "Windows, x64, Ninja, Release",
+			"binaryDir": "${sourceDir}/_build_${presetName}",
+			"installDir": "${sourceDir}/_build_${presetName}/Install"
+		},
+		{
+			"name": "macos_x64_ninja_debug",
+			"inherits": [
+				"project",
+				"macos",
+				"x64_macos",
+				"ninja",
+				"debug"
+			],
+			"displayName": "macOS x64 Debug",
+			"description": "macOS, x64, Ninja, Debug",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "macos_x64_ninja_release",
+			"inherits": [
+				"project",
+				"macos",
+				"x64_macos",
+				"ninja",
+				"release"
+			],
+			"displayName": "macOS x64 Release",
+			"description": "macOS, x64, Ninja, Release",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "macos_arm64_ninja_debug",
+			"inherits": [
+				"project",
+				"macos",
+				"arm64_macos",
+				"ninja",
+				"debug"
+			],
+			"displayName": "macOS arm64 Debug",
+			"description": "macOS, arm64, Ninja, Debug",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "macos_arm64_ninja_release",
+			"inherits": [
+				"project",
+				"macos",
+				"arm64_macos",
+				"ninja",
+				"release"
+			],
+			"displayName": "macOS arm64 Release",
+			"description": "macOS, arm64, Ninja, Release",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "macos_universal_ninja_debug",
+			"inherits": [
+				"project",
+				"macos",
+				"universal_macos",
+				"ninja",
+				"debug"
+			],
+			"displayName": "macOS Universal Debug",
+			"description": "macOS, Universal, Ninja, Debug",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "macos_universal_ninja_release",
+			"inherits": [
+				"project",
+				"macos",
+				"universal_macos",
+				"ninja",
+				"release"
+			],
+			"displayName": "macOS Universal Release",
+			"description": "macOS, Universal, Ninja, Release",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "linux_x64_ninja_debug",
+			"inherits": [
+				"project",
+				"linux",
+				"x64",
+				"ninja",
+				"debug"
+			],
+			"displayName": "Linux x64 Debug",
+			"description": "Linux, x64, Ninja, Debug",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "linux_x64_ninja_release",
+			"inherits": [
+				"project",
+				"linux",
+				"x64",
+				"ninja",
+				"release"
+			],
+			"displayName": "Linux x64 Release",
+			"description": "Linux, x64, Ninja, Release",
+			"binaryDir": "${sourceDir}/_build_${presetName}",
+			"installDir": "${sourceDir}/_build_${presetName}/Install"
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "win_x86_ninja_debug",
+			"configurePreset": "win_x86_ninja_debug"
+		},
+		{
+			"name": "win_x86_ninja_release",
+			"configurePreset": "win_x86_ninja_release"
+		},
+		{
+			"name": "win_x64_ninja_debug",
+			"configurePreset": "win_x64_ninja_debug"
+		},
+		{
+			"name": "win_x64_ninja_release",
+			"configurePreset": "win_x64_ninja_release"
+		},
+		{
+			"name": "macos_x64_ninja_debug",
+			"configurePreset": "macos_x64_ninja_debug"
+		},
+		{
+			"name": "macos_x64_ninja_release",
+			"configurePreset": "macos_x64_ninja_release"
+		},
+		{
+			"name": "macos_arm64_ninja_debug",
+			"configurePreset": "macos_arm64_ninja_debug"
+		},
+		{
+			"name": "macos_arm64_ninja_release",
+			"configurePreset": "macos_arm64_ninja_release"
+		},
+		{
+			"name": "macos_universal_ninja_debug",
+			"configurePreset": "macos_universal_ninja_debug"
+		},
+		{
+			"name": "macos_universal_ninja_release",
+			"configurePreset": "macos_universal_ninja_release"
+		},
+		{
+			"name": "linux_x64_ninja_debug",
+			"configurePreset": "linux_x64_ninja_debug"
+		},
+		{
+			"name": "linux_x64_ninja_release",
+			"configurePreset": "linux_x64_ninja_release"
+		}
+	],
+	"packagePresets": [
+		{
+			"name": "windows-package",
+			"configurePreset": "win_x64_ninja_release"
+		},
+		{
+			"name": "macos-package",
+			"configurePreset": "macos_universal_ninja_release"
+		},
+		{
+			"name": "linux-package",
+			"configurePreset": "linux_x64_ninja_release"
+		}
+	]
+}

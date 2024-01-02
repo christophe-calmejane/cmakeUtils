@@ -1,0 +1,125 @@
+{
+	"version": 6,
+	"cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 28,
+		"patch": 0
+	},
+	"configurePresets": [
+		{
+			"name": "ninja",
+			"hidden": true,
+			"generator": "Ninja",
+			"cacheVariables": {
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "TRUE"
+			}
+		},
+		{
+			"name": "x86",
+			"hidden": true,
+			"architecture": {
+				"value": "x86",
+				"strategy": "external"
+			}
+		},
+		{
+			"name": "x64",
+			"hidden": true,
+			"architecture": {
+				"value": "x64",
+				"strategy": "external"
+			}
+		},
+		{
+			"name": "arm64",
+			"hidden": true,
+			"architecture": {
+				"value": "arm64",
+				"strategy": "external"
+			}
+		},
+		{
+			"name": "x64_macos",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_OSX_ARCHITECTURES": "x86_64"
+			}
+		},
+		{
+			"name": "arm64_macos",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_OSX_ARCHITECTURES": "arm64"
+			}
+		},
+		{
+			"name": "universal_macos",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_OSX_ARCHITECTURES": "arm64;x86_64"
+			}
+		},
+		{
+			"name": "debug",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "release",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "windows",
+			"hidden": true,
+			"toolset": {
+				"value": "v143,host=x64",
+				"strategy": "external"
+			},
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "cl",
+				"CMAKE_CXX_COMPILER": "cl"
+			},
+			"vendor": {
+				"microsoft.com/VisualStudioSettings/CMake/1.0": {
+					"hostOS": [ "Windows" ]
+				}
+			},
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
+		},
+		{
+			"name": "macos",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang",
+				"CMAKE_CXX_COMPILER": "clang++"
+			},
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Darwin"
+			}
+		},
+		{
+			"name": "linux",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "gcc",
+				"CMAKE_CXX_COMPILER": "g++"
+			},
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Linux"
+			}
+		}
+	]
+}
