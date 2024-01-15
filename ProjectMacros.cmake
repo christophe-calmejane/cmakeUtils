@@ -675,7 +675,7 @@ endfunction()
 #  - "ALIAS_NAME <name>" => Force the alias name for the target (ie. ${PROJECT_NAME}::name) (defaults to either 'static' or 'shared')
 function(cu_setup_library_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET" "ALIAS_NAME" "" ${ARGN})
+	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET;NO_DEBUG_SYMBOLS" "ALIAS_NAME" "" ${ARGN})
 
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -807,8 +807,10 @@ function(cu_setup_library_options TARGET_NAME)
 	# Additional include directories
 	target_include_directories(${TARGET_NAME} PUBLIC $<INSTALL_INTERFACE:include> $<BUILD_INTERFACE:${CU_ROOT_DIR}/include> PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 	
-	# Setup debug symbols
-	cu_setup_symbols(${TARGET_NAME})
+	if(NOT CUSLO_NO_DEBUG_SYMBOLS)
+		# Setup debug symbols
+		cu_setup_symbols(${TARGET_NAME})
+	endif()
 
 endfunction()
 
@@ -957,7 +959,7 @@ endfunction()
 #  - "NO_MAX_WARNINGS" => Will not call cu_set_maximum_warnings on the target
 function(cu_setup_executable_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS" "" "" ${ARGN})
+	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS" "" "" ${ARGN})
 
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
@@ -1008,8 +1010,10 @@ function(cu_setup_executable_options TARGET_NAME)
 	# Set target properties
 	cu_setup_bundle_information(${TARGET_NAME})
 
-	# Setup debug symbols
-	cu_setup_symbols(${TARGET_NAME})
+	if (NOT CUSEO_NO_DEBUG_SYMBOLS)
+		# Setup debug symbols
+		cu_setup_symbols(${TARGET_NAME})
+	endif()
 
 	# Add vscode launch configuration
 	cu_add_vscode_launch_configuration(${TARGET_NAME})
