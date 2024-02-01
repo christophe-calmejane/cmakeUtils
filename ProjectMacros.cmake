@@ -674,9 +674,10 @@ endfunction()
 #  - "NO_ALIAS_TARGET" => Will not create an alias target for the target
 #  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
 #  - "ALIAS_NAME <name>" => Force the alias name for the target (ie. ${PROJECT_NAME}::name) (defaults to either 'static' or 'shared')
+#  - "UNICODE" => Will force unicode character set for the target (Windows only) instead of multi-byte character set (default)
 function(cu_setup_library_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET;NO_DEBUG_SYMBOLS" "ALIAS_NAME" "" ${ARGN})
+	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET;NO_DEBUG_SYMBOLS;UNICODE" "ALIAS_NAME" "" ${ARGN})
 
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -691,9 +692,13 @@ function(cu_setup_library_options TARGET_NAME)
 		# Set WIN32 version since we want to target WinVista minimum
 		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0600)
 
-		# Force multi-byte character strings
-		if(COMMAND qt6_disable_unicode_defines)
-			qt6_disable_unicode_defines(${TARGET_NAME})
+		if(NOT CUSLO_UNICODE)
+			# Force multi-byte character strings
+			if(COMMAND qt6_disable_unicode_defines)
+				qt6_disable_unicode_defines(${TARGET_NAME})
+			endif()
+		else()
+			target_compile_definitions(${TARGET_NAME} PRIVATE UNICODE _UNICODE)
 		endif()
 	endif()
 
@@ -959,17 +964,22 @@ endfunction()
 # Optional parameters:
 #  - "NO_MAX_WARNINGS" => Will not set maximum warnings on the target
 #  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
+#  - "UNICODE" => Will force unicode character set for the target (Windows only) instead of multi-byte character set (default)
 function(cu_setup_executable_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS" "" "" ${ARGN})
+	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS;UNICODE" "" "" ${ARGN})
 
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
 		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0600)
 
-		# Force multi-byte character strings
-		if(COMMAND qt6_disable_unicode_defines)
-			qt6_disable_unicode_defines(${TARGET_NAME})
+		if(NOT CUSEO_UNICODE)
+			# Force multi-byte character strings
+			if(COMMAND qt6_disable_unicode_defines)
+				qt6_disable_unicode_defines(${TARGET_NAME})
+			endif()
+		else()
+			target_compile_definitions(${TARGET_NAME} PRIVATE UNICODE _UNICODE)
 		endif()
 	endif()
 
