@@ -670,8 +670,9 @@ endfunction()
 ###############################################################################
 # Setup common options for a library target
 # Optional parameters:
-#  - "NO_MAX_WARNINGS" => Will not call cu_set_maximum_warnings on the target
+#  - "NO_MAX_WARNINGS" => Will not set maximum warnings on the target
 #  - "NO_ALIAS_TARGET" => Will not create an alias target for the target
+#  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
 #  - "ALIAS_NAME <name>" => Force the alias name for the target (ie. ${PROJECT_NAME}::name) (defaults to either 'static' or 'shared')
 function(cu_setup_library_options TARGET_NAME)
 	# Parse arguments
@@ -956,7 +957,8 @@ endfunction()
 ###############################################################################
 # Setup common options for an executable target.
 # Optional parameters:
-#  - "NO_MAX_WARNINGS" => Will not call cu_set_maximum_warnings on the target
+#  - "NO_MAX_WARNINGS" => Will not set maximum warnings on the target
+#  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
 function(cu_setup_executable_options TARGET_NAME)
 	# Parse arguments
 	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS" "" "" ${ARGN})
