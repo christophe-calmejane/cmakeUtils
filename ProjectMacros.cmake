@@ -1317,6 +1317,8 @@ macro(_cu_vscode_append_build_task_target TARGET_NAME IS_DEFAULT IS_LAST)
 endmacro()
 
 function(_cu_vscode_write_workspace)
+	message(STATUS "Generating Visual Studio Code workspace file")
+
 	get_property(targetsList GLOBAL PROPERTY CU_VSCODE_LAUNCH_TARGETS)
 
 	# Multi-config project
@@ -1513,12 +1515,19 @@ endfunction()
 
 ###############################################################################
 # Macro to be called as the last cmake command from the main cmake file
+# Optional parameters:
+#  - "NO_VSCODE_WORKSPACE" => Will not generate vscode workspace file
 macro(cu_finalize)
+	# Parse arguments
+	cmake_parse_arguments(CUF "NO_VSCODE_WORKSPACE" "" "" ${ARGN})
+
 	# Allow generator expressions in install(CODE/SCRIPT)
 	cmake_policy(SET CMP0087 NEW)
 
-	# Write vscode files
-	_cu_vscode_write_workspace()
+	if(NOT CUF_NO_VSCODE_WORKSPACE)
+		# Write vscode files
+		_cu_vscode_write_workspace()
+	endif()
 
 	# Check if MARKETING_VERSION_DIGITS and MARKETING_VERSION_POSTFIX are set (if not, it means gen_cmake doesn't match this file)
 	if(NOT DEFINED MARKETING_VERSION_DIGITS OR NOT DEFINED MARKETING_VERSION_POSTFIX)
