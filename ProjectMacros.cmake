@@ -435,11 +435,15 @@ endfunction()
 ###############################################################################
 # Setup symbols for a target.
 function(cu_setup_symbols TARGET_NAME)
+	cmake_parse_arguments(CUSS "NO_COPY_DEBUG_SYMBOLS" "" "" ${ARGN})
+
 	# Force symbols file generation
 	cu_force_symbols_file(${TARGET_NAME})
 
 	# Copy symbols to a common location
-	cu_copy_symbols(${TARGET_NAME})
+	if (NOT ${CUSS_NO_COPY_DEBUG_SYMBOLS})
+		cu_copy_symbols(${TARGET_NAME})
+	endif()
 endfunction()
 
 ###############################################################################
@@ -675,9 +679,10 @@ endfunction()
 #  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
 #  - "ALIAS_NAME <name>" => Force the alias name for the target (ie. ${PROJECT_NAME}::name) (defaults to either 'static' or 'shared')
 #  - "UNICODE" => Will force unicode character set for the target (Windows only) instead of multi-byte character set (default)
+#  - "NO_COPY_DEBUG_SYMBOLS" => Won't copy debug symbols from the build folder when set, but it will still generate them.
 function(cu_setup_library_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET;NO_DEBUG_SYMBOLS;UNICODE" "ALIAS_NAME" "" ${ARGN})
+	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET;NO_DEBUG_SYMBOLS;UNICODE;NO_COPY_DEBUG_SYMBOLS" "ALIAS_NAME" "" ${ARGN})
 
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -813,9 +818,13 @@ function(cu_setup_library_options TARGET_NAME)
 	# Additional include directories
 	target_include_directories(${TARGET_NAME} PUBLIC $<INSTALL_INTERFACE:include> $<BUILD_INTERFACE:${CU_ROOT_DIR}/include> PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 	
-	if(NOT CUSLO_NO_DEBUG_SYMBOLS)
+	if (NOT CUSLO_NO_DEBUG_SYMBOLS)
 		# Setup debug symbols
-		cu_setup_symbols(${TARGET_NAME})
+		set(COPY_SYMBOLS_ARG "")
+		if (${CUSLO_NO_COPY_DEBUG_SYMBOLS})
+			set(COPY_SYMBOLS_ARG "NO_COPY_DEBUG_SYMBOLS")
+		endif()
+		cu_setup_symbols(${TARGET_NAME} ${COPY_SYMBOLS_ARG})
 	endif()
 
 endfunction()
@@ -965,9 +974,10 @@ endfunction()
 #  - "NO_MAX_WARNINGS" => Will not set maximum warnings on the target
 #  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
 #  - "UNICODE" => Will force unicode character set for the target (Windows only) instead of multi-byte character set (default)
+#  - "NO_COPY_DEBUG_SYMBOLS" => Won't copy debug symbols from the build folder when set, but it will still generate them.
 function(cu_setup_executable_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS;UNICODE" "" "" ${ARGN})
+	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS;UNICODE;NO_COPY_DEBUG_SYMBOLS" "" "" ${ARGN})
 
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
@@ -1024,7 +1034,11 @@ function(cu_setup_executable_options TARGET_NAME)
 
 	if (NOT CUSEO_NO_DEBUG_SYMBOLS)
 		# Setup debug symbols
-		cu_setup_symbols(${TARGET_NAME})
+		set(COPY_SYMBOLS_ARG "")
+		if (${CUSEO_NO_COPY_DEBUG_SYMBOLS})
+			set(COPY_SYMBOLS_ARG "NO_COPY_DEBUG_SYMBOLS")
+		endif()
+		cu_setup_symbols(${TARGET_NAME} ${COPY_SYMBOLS_ARG})
 	endif()
 
 	# Add vscode launch configuration
