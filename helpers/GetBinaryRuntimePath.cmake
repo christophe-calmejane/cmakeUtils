@@ -9,52 +9,21 @@ set(CU_GET_BINARY_RUNTIME_PATH_INCLUDED true)
 
 ##################################
 # Internal functions
-function(cu_private_get_binary_runpaths_macos INPUT_TEXT PATHS_OUTPUT)
+function(cu_private_get_binary_runpaths INPUT_TEXT SECTION_MATCH_REGEX PATHS_MATCH_REGEX PATH_SPLIT_REGEX PATHS_OUTPUT)
 	# Clear output variable
 	set(${PATHS_OUTPUT} "")
 
-	# Match all runpaths (that span multiple lines)
-	string(REGEX MATCHALL "LC_RPATH[^\n]*\n[ \t]+cmdsize[^\n]*\n[ \t]+path[ ]+[^(]+ \\(" RUNPATHS_RESULT "${INPUT_TEXT}")
+	# Match all runpaths (we may have multiple entries so let's match all of them)
+	string(REGEX MATCHALL "${SECTION_MATCH_REGEX}" RUNPATHS_RESULT "${INPUT_TEXT}")
 	# MATCHALL returns a list of all matches, we have to iterate over it (the list) to extract the actual runpaths
 	if(RUNPATHS_RESULT)
 		# For each found runpath entry, extract all subpaths
 		foreach(RUNPATHS_WITH_CONTEXT ${RUNPATHS_RESULT})
-			string(REGEX MATCH "path[ ]+([^ ]+)" RUNPATHS_RESULT "${RUNPATHS_WITH_CONTEXT}")
+			string(REGEX MATCH "${PATHS_MATCH_REGEX}" RUNPATHS_RESULT "${RUNPATHS_WITH_CONTEXT}")
 			# Expecting only one match
 			if(CMAKE_MATCH_COUNT EQUAL 1)
 				# Now we can extract all subpaths that are separated by ':'
-				string(REGEX MATCHALL "([^:]+)" SUBPATHS_RESULT "${CMAKE_MATCH_1}")
-				# For each subpath found, add it to the output list
-				foreach(SUBPATH ${SUBPATHS_RESULT})
-					# Add the subpath to the output list
-					list(APPEND ${PATHS_OUTPUT} "${SUBPATH}")
-				endforeach()
-			endif()
-		endforeach()
-	endif()
-
-	# Remove duplicates
-	list(REMOVE_DUPLICATES ${PATHS_OUTPUT})
-
-	# Return the result
-	set(${PATHS_OUTPUT} ${${PATHS_OUTPUT}} PARENT_SCOPE)
-endfunction()
-
-function(cu_private_get_binary_runpaths_unix INPUT_TEXT PATHS_OUTPUT)
-	# Clear output variable
-	set(${PATHS_OUTPUT} "")
-
-	# Match all runpaths (on unix systems, runpaths are stored in RUNPATH section and it seems we only have one RUNPATH section but just in case let's match all of them)
-	string(REGEX MATCHALL "\\(RUNPATH\\)[^[]+\\[[^]]+\\]" RUNPATHS_RESULT "${INPUT_TEXT}")
-	# MATCHALL returns a list of all matches, we have to iterate over it (the list) to extract the actual runpaths
-	if(RUNPATHS_RESULT)
-		# For each found runpath entry, extract all subpaths
-		foreach(RUNPATHS_WITH_CONTEXT ${RUNPATHS_RESULT})
-			string(REGEX MATCH "\\[([^]]+)\\]" RUNPATHS_RESULT "${RUNPATHS_WITH_CONTEXT}")
-			# Expecting only one match
-			if(CMAKE_MATCH_COUNT EQUAL 1)
-				# Now we can extract all subpaths that are separated by ':'
-				string(REGEX MATCHALL "([^:]+)" SUBPATHS_RESULT "${CMAKE_MATCH_1}")
+				string(REGEX MATCHALL "${PATH_SPLIT_REGEX}" SUBPATHS_RESULT "${CMAKE_MATCH_1}")
 				# For each subpath found, add it to the output list
 				foreach(SUBPATH ${SUBPATHS_RESULT})
 					# Add the subpath to the output list
@@ -146,7 +115,7 @@ function(cu_get_binary_runtime_path)
 
 		# Retrieve all runpaths
 		set(RUNPATHS "")
-		cu_private_get_binary_runpaths_macos("${CMD_OUTPUT}" RUNPATHS)
+		cu_private_get_binary_runpaths("${CMD_OUTPUT}" "LC_RPATH[^\n]*\n[ \t]+cmdsize[^\n]*\n[ \t]+path[ ]+[^(]+ \\(" "path[ ]+([^ ]+)" "([^:]+)" RUNPATHS)
 
 		# Find a suitable replacement
 		cu_private_find_replacement_in_runpaths("${ABSOLUTE_BIN_DIR}" "${RUNPATHS}" "(^\\@[^/]+)(.+)" "@executable_path" RPATH)
@@ -162,7 +131,7 @@ function(cu_get_binary_runtime_path)
 
 		# Retrieve all runpaths
 		set(RUNPATHS "")
-		cu_private_get_binary_runpaths_unix("${CMD_OUTPUT}" RUNPATHS)
+		cu_private_get_binary_runpaths("${CMD_OUTPUT}" "\\(RUNPATH\\)[^[]+\\[[^]]+\\]" "\\[([^]]+)\\]" "([^:]+)" RUNPATHS)
 
 		# Find a suitable replacement
 		cu_private_find_replacement_in_runpaths("${ABSOLUTE_BIN_DIR}" "${RUNPATHS}" "(^\\$[^/]+)(.+)" "$ORIGIN" RPATH)
