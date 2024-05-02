@@ -1058,7 +1058,7 @@ function(cu_setup_executable_options TARGET_NAME)
 
 	# Set rpath for linux
 	elseif(NOT WIN32)
-		set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "../lib")
+		set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
 		# Directly use install rpath
 		set_target_properties(${TARGET_NAME} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
 	endif()
