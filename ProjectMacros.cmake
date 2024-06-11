@@ -32,6 +32,9 @@
 #  Optional variables:
 #   CU_TARGET_BUNDLE_IDENTIFIER (Defaults to '${CU_REVERSE_DOMAIN_NAME}.\${TARGET_NAME}'): Bundle identifier for the executable
 
+# Overridable methods:
+#  cu_set_warning_flags(TARGET_NAME): Called once per target to set the warning flags
+
 # Set this variable before the include guard so it's always correctly defined for the current repository
 set(CU_ROOT_DIR "${PROJECT_SOURCE_DIR}") # Folder containing the main CMakeLists.txt for the current repository including this file
 
@@ -260,6 +263,45 @@ function(cu_set_maximum_warnings TARGET_NAME)
 endfunction()
 
 ###############################################################################
+# Set the warning flags for the target
+function(cu_set_warning_flags TARGET_NAME)
+	if(MSVC)
+		# Don't use Wall on MSVC, it prints too many stupid warnings
+		target_compile_options(${TARGET_NAME} PRIVATE
+			/WX # Treat warnings as errors
+			/W4 # Warning level 4
+			/w14265 # Warn if a class has virtual functions but no virtual destructor
+		)
+		# Using clang-cl with MSVC (special case as MSBuild will convert MSVC Flags to Clang flags automatically)
+		if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+			target_compile_options(${TARGET_NAME} PRIVATE -Wno-nonportable-include-path -Wno-microsoft-include)
+		endif()
+
+	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		target_compile_options(${TARGET_NAME} PRIVATE
+			-Wall # Enable all warnings
+			-Werror # Treat warnings as errors
+			-Wextra # Enable extra warnings
+			-Wpedantic # Enable pedantic warnings
+			-Wnon-virtual-dtor # Warn if a class has virtual functions but no virtual destructor
+			-Wfloat-conversion # Warn about float conversions
+		)
+
+	elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+		target_compile_options(${TARGET_NAME} PRIVATE
+			-Wall # Enable all warnings
+			-Werror # Treat warnings as errors
+			-Wextra # Enable extra warnings
+			-Wpedantic # Enable pedantic warnings
+			-Wnon-virtual-dtor # Warn if a class has virtual functions but no virtual destructor
+			-Wfloat-conversion # Warn about float conversions
+		)
+	else()
+		message(WARNING "cu_set_warning_flags: Unknown compiler")
+	endif()
+endfunction()
+
+###############################################################################
 # Set the DEBUG define in debug mode
 # Applies on a target, must be called after target has been defined with
 # 'add_library' or 'add_executable'.
@@ -372,6 +414,8 @@ function(cu_force_symbols_file TARGET_NAME)
 				)
 			endif()
 		endif()
+	elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		target_compile_options(${TARGET_NAME} PRIVATE -g)
 	endif()
 endfunction()
 
@@ -674,7 +718,6 @@ endfunction()
 ###############################################################################
 # Setup common options for a library target
 # Optional parameters:
-#  - "NO_MAX_WARNINGS" => Will not set maximum warnings on the target
 #  - "NO_ALIAS_TARGET" => Will not create an alias target for the target
 #  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
 #  - "ALIAS_NAME <name>" => Force the alias name for the target (ie. ${PROJECT_NAME}::name) (defaults to either 'static' or 'shared')
@@ -683,6 +726,11 @@ endfunction()
 function(cu_setup_library_options TARGET_NAME)
 	# Parse arguments
 	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET;NO_DEBUG_SYMBOLS;UNICODE;NO_COPY_DEBUG_SYMBOLS" "ALIAS_NAME" "" ${ARGN})
+
+	# Check legacy parameters
+	if(CUSLO_NO_MAX_WARNINGS)
+		message(WARNING "NO_MAX_WARNINGS is deprecated, redefine the cu_set_warning_flags function in your local_definitions.cmake file instead.")
+	endif()
 
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -786,10 +834,8 @@ function(cu_setup_library_options TARGET_NAME)
 		cu_setup_asan_options(${TARGET_NAME})
 	endif()
 
-	if(NOT CUSLO_NO_MAX_WARNINGS)
-		# Set full warnings (including treat warnings as error)
-		cu_set_maximum_warnings(${TARGET_NAME})
-	endif()
+	# Set the warning flags for the target
+	cu_set_warning_flags(${TARGET_NAME})
 	
 	# Set parallel build
 	cu_set_parallel_build(${TARGET_NAME})
@@ -971,13 +1017,17 @@ endfunction()
 ###############################################################################
 # Setup common options for an executable target.
 # Optional parameters:
-#  - "NO_MAX_WARNINGS" => Will not set maximum warnings on the target
 #  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
 #  - "UNICODE" => Will force unicode character set for the target (Windows only) instead of multi-byte character set (default)
 #  - "NO_COPY_DEBUG_SYMBOLS" => Won't copy debug symbols from the build folder when set, but it will still generate them.
 function(cu_setup_executable_options TARGET_NAME)
 	# Parse arguments
 	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS;UNICODE;NO_COPY_DEBUG_SYMBOLS" "" "" ${ARGN})
+
+	# Check legacy parameters
+	if(CUSEO_NO_MAX_WARNINGS)
+		message(WARNING "NO_MAX_WARNINGS is deprecated, redefine the cu_set_warning_flags function in your local_definitions.cmake file instead.")
+	endif()
 
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
@@ -1008,10 +1058,8 @@ function(cu_setup_executable_options TARGET_NAME)
 		cu_setup_asan_options(${TARGET_NAME})
 	endif()
 
-	if(NOT CUSEO_NO_MAX_WARNINGS)
-		# Set full warnings (including treat warnings as error)
-		cu_set_maximum_warnings(${TARGET_NAME})
-	endif()
+	# Set the warning flags for the target
+	cu_set_warning_flags(${TARGET_NAME})
 	
 	# Set parallel build
 	cu_set_parallel_build(${TARGET_NAME})
@@ -1675,7 +1723,7 @@ macro(cu_setup_project_version_variables PRJ_VERSION)
 endmacro()
 
 # Print version message
-message(STATUS "CMake Macros v10.0")
+message(STATUS "CMake Macros v10.1")
 
 # Load and parse an optional cmake file, allowing overriding variables and other things before really processing the main CMakeLists.txt file
 # This file will only be loaded once by this script, by the main project repository, even if present in sub projects
