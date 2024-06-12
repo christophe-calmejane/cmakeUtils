@@ -32,14 +32,22 @@
 #  Optional variables:
 #   CU_TARGET_BUNDLE_IDENTIFIER (Defaults to '${CU_REVERSE_DOMAIN_NAME}.\${TARGET_NAME}'): Bundle identifier for the executable
 
-# Overridable methods:
-#  cu_set_warning_flags(TARGET_NAME): Called once per target to set the warning flags
+# cu_set_warning_flags method
+#  This method is used to add specific warning flags to one or more targets.
+#  Mandatory variables:
+#   TARGETS <targets...>: List of targets to which the warning flags will be added. If 'ALL' is specified, all targets will be affected.
+#   COMPILER <compiler>: Compiler to which the warning flags will be added (MSVC, CLANG, GCC)
+#  Optional variables:
+#   PRIVATE <flags...>: List of flags to add to the target's PRIVATE compile options
+#   PUBLIC <flags...>: List of flags to add to the target's PUBLIC compile options
 
 # Set this variable before the include guard so it's always correctly defined for the current repository
 set(CU_ROOT_DIR "${PROJECT_SOURCE_DIR}") # Folder containing the main CMakeLists.txt for the current repository including this file
 
 # Avoid multi inclusion of this file (cannot use include_guard as multiple copies of this file are included from multiple places)
 if(CU_PROJECT_MACROS_INCLUDED)
+	# We still want to include the local_definitions file if it exists
+	include("local_definitions.cmake" OPTIONAL)
 	return()
 endif()
 set(CU_PROJECT_MACROS_INCLUDED true)
@@ -79,6 +87,78 @@ include(${CMAKE_CURRENT_LIST_DIR}/helpers/TargetSetupDeploy.cmake)
 
 ###############################################################################
 # Internal functions
+function(cu_private_set_warning_flags TARGET_NAME)
+	# Get the compiler
+	if(MSVC)
+		set(COMPILER "MSVC")
+	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		set(COMPILER "CLANG")
+	elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+		set(COMPILER "GCC")
+	else()
+		message(WARNING "cu_private_set_warning_flags: Unknown compiler")
+		return()
+	endif()
+
+	# Get the ALL target flags and apply (if any)
+	get_property(all_private_options GLOBAL PROPERTY CUWF_ALL_${COMPILER}_PRIVATE_COMPILE_OPTIONS)
+	get_property(all_public_options GLOBAL PROPERTY CUWF_ALL_${COMPILER}_PUBLIC_COMPILE_OPTIONS)
+	if(all_private_options)
+		target_compile_options(${TARGET_NAME} PRIVATE ${all_private_options})
+	endif()
+	if(all_public_options)
+		target_compile_options(${TARGET_NAME} PUBLIC ${all_public_options})
+	endif()
+
+	# Get the target flags and apply (if any)
+	get_property(private_options GLOBAL PROPERTY CUWF_${TARGET_NAME}_${COMPILER}_PRIVATE_COMPILE_OPTIONS)
+	get_property(public_options GLOBAL PROPERTY CUWF_${TARGET_NAME}_${COMPILER}_PUBLIC_COMPILE_OPTIONS)
+	if(private_options)
+		target_compile_options(${TARGET_NAME} PRIVATE ${private_options})
+	endif()
+	if(public_options)
+		target_compile_options(${TARGET_NAME} PUBLIC ${public_options})
+	endif()
+endfunction()
+
+#
+function(cu_private_set_default_warning_flags TARGET_NAME)
+	if(MSVC)
+		# Don't use Wall on MSVC, it prints too many stupid warnings
+		target_compile_options(${TARGET_NAME} PRIVATE
+			/WX # Treat warnings as errors
+			/W4 # Warning level 4
+			/w14265 # Warn if a class has virtual functions but no virtual destructor
+		)
+
+	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		target_compile_options(${TARGET_NAME} PRIVATE
+			-Wall # Enable all warnings
+			-Werror # Treat warnings as errors
+			-Wextra # Enable extra warnings
+			-Wpedantic # Enable pedantic warnings
+			-Wnon-virtual-dtor # Warn if a class has virtual functions but no virtual destructor
+			-Wfloat-conversion # Warn about float conversions
+		)
+
+	elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+		target_compile_options(${TARGET_NAME} PRIVATE
+			-Wall # Enable all warnings
+			-Werror # Treat warnings as errors
+			-Wextra # Enable extra warnings
+			-Wpedantic # Enable pedantic warnings
+			-Wnon-virtual-dtor # Warn if a class has virtual functions but no virtual destructor
+			-Wfloat-conversion # Warn about float conversions
+		)
+	else()
+		message(WARNING "cu_private_set_default_warning_flags: Unknown compiler")
+	endif()
+
+	# Check for overrides
+	cu_private_set_warning_flags(${TARGET_NAME})
+endfunction()
+
+#
 function(cu_private_get_sign_command_options OUT_VAR)
 	set(${OUT_VAR} SIGNTOOL_OPTIONS ${CU_SIGNTOOL_OPTIONS} /d \"${CU_COMPANY_NAME} ${PROJECT_NAME}\" CODESIGN_OPTIONS --timestamp --deep --strict --force --options=runtime CODESIGN_IDENTITY \"${CU_BINARY_SIGNING_IDENTITY}\" PARENT_SCOPE)
 endfunction()
@@ -264,41 +344,31 @@ endfunction()
 
 ###############################################################################
 # Set the warning flags for the target
-function(cu_set_warning_flags TARGET_NAME)
-	if(MSVC)
-		# Don't use Wall on MSVC, it prints too many stupid warnings
-		target_compile_options(${TARGET_NAME} PRIVATE
-			/WX # Treat warnings as errors
-			/W4 # Warning level 4
-			/w14265 # Warn if a class has virtual functions but no virtual destructor
-		)
-		# Using clang-cl with MSVC (special case as MSBuild will convert MSVC Flags to Clang flags automatically)
-		if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-			target_compile_options(${TARGET_NAME} PRIVATE -Wno-nonportable-include-path -Wno-microsoft-include)
-		endif()
+function(cu_set_warning_flags)
+	cmake_parse_arguments(CUSWF "" "COMPILER" "TARGETS;PRIVATE;PUBLIC" ${ARGN})
 
-	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-		target_compile_options(${TARGET_NAME} PRIVATE
-			-Wall # Enable all warnings
-			-Werror # Treat warnings as errors
-			-Wextra # Enable extra warnings
-			-Wpedantic # Enable pedantic warnings
-			-Wnon-virtual-dtor # Warn if a class has virtual functions but no virtual destructor
-			-Wfloat-conversion # Warn about float conversions
-		)
-
-	elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
-		target_compile_options(${TARGET_NAME} PRIVATE
-			-Wall # Enable all warnings
-			-Werror # Treat warnings as errors
-			-Wextra # Enable extra warnings
-			-Wpedantic # Enable pedantic warnings
-			-Wnon-virtual-dtor # Warn if a class has virtual functions but no virtual destructor
-			-Wfloat-conversion # Warn about float conversions
-		)
-	else()
-		message(WARNING "cu_set_warning_flags: Unknown compiler")
+	# Check that mandatory arguments are set (ie. COMPILER and TARGETS)
+	if(NOT CUSWF_COMPILER)
+		message(FATAL_ERROR "cu_set_warning_flags: COMPILER argument is mandatory")
 	endif()
+	if(NOT CUSWF_TARGETS)
+		message(FATAL_ERROR "cu_set_warning_flags: TARGETS argument is mandatory")
+	endif()
+
+	# Check that COMPILER is valid (ie. MSVC, CLANG, GCC)
+	if(NOT CUSWF_COMPILER STREQUAL "MSVC" AND NOT CUSWF_COMPILER STREQUAL "CLANG" AND NOT CUSWF_COMPILER STREQUAL "GCC")
+		message(FATAL_ERROR "cu_set_warning_flags: COMPILER argument must be MSVC, CLANG or GCC")
+	endif()
+
+	foreach(target ${CUSWF_TARGETS})
+		# Store the flags in global properties (only if set)
+		if(CUSWF_PRIVATE)
+			set_property(GLOBAL PROPERTY CUWF_${target}_${CUSWF_COMPILER}_PRIVATE_COMPILE_OPTIONS ${CUSWF_PRIVATE})
+		endif()
+		if(CUSWF_PUBLIC)
+			set_property(GLOBAL PROPERTY CUWF_${target}_${CUSWF_COMPILER}_PUBLIC_COMPILE_OPTIONS ${CUSWF_PUBLIC})
+		endif()
+	endforeach()
 endfunction()
 
 ###############################################################################
@@ -729,7 +799,7 @@ function(cu_setup_library_options TARGET_NAME)
 
 	# Check legacy parameters
 	if(CUSLO_NO_MAX_WARNINGS)
-		message(WARNING "NO_MAX_WARNINGS is deprecated, redefine the cu_set_warning_flags function in your local_definitions.cmake file instead.")
+		message(WARNING "NO_MAX_WARNINGS is deprecated, use the cu_set_warning_flags function instead.")
 	endif()
 
 	# Get target type for specific options
@@ -835,7 +905,7 @@ function(cu_setup_library_options TARGET_NAME)
 	endif()
 
 	# Set the warning flags for the target
-	cu_set_warning_flags(${TARGET_NAME})
+	cu_private_set_default_warning_flags(${TARGET_NAME})
 	
 	# Set parallel build
 	cu_set_parallel_build(${TARGET_NAME})
@@ -1026,7 +1096,7 @@ function(cu_setup_executable_options TARGET_NAME)
 
 	# Check legacy parameters
 	if(CUSEO_NO_MAX_WARNINGS)
-		message(WARNING "NO_MAX_WARNINGS is deprecated, redefine the cu_set_warning_flags function in your local_definitions.cmake file instead.")
+		message(WARNING "NO_MAX_WARNINGS is deprecated, use the cu_set_warning_flags function instead.")
 	endif()
 
 	if(MSVC)
@@ -1059,7 +1129,7 @@ function(cu_setup_executable_options TARGET_NAME)
 	endif()
 
 	# Set the warning flags for the target
-	cu_set_warning_flags(${TARGET_NAME})
+	cu_private_set_default_warning_flags(${TARGET_NAME})
 	
 	# Set parallel build
 	cu_set_parallel_build(${TARGET_NAME})
@@ -1723,8 +1793,7 @@ macro(cu_setup_project_version_variables PRJ_VERSION)
 endmacro()
 
 # Print version message
-message(STATUS "CMake Macros v10.1")
+message(STATUS "CMake Macros v11.0")
 
 # Load and parse an optional cmake file, allowing overriding variables and other things before really processing the main CMakeLists.txt file
-# This file will only be loaded once by this script, by the main project repository, even if present in sub projects
 include("local_definitions.cmake" OPTIONAL)
