@@ -128,7 +128,7 @@ function(cu_private_set_default_warning_flags TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE
 			/WX # Treat warnings as errors
 			/W4 # Warning level 4
-			/w14265 # Warn if a class has virtual functions but no virtual destructor
+			$<$<COMPILE_LANGUAGE:CXX>:/w14265> # Warn if a class has virtual functions but no virtual destructor
 		)
 
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -137,7 +137,7 @@ function(cu_private_set_default_warning_flags TARGET_NAME)
 			-Werror # Treat warnings as errors
 			-Wextra # Enable extra warnings
 			-Wpedantic # Enable pedantic warnings
-			-Wnon-virtual-dtor # Warn if a class has virtual functions but no virtual destructor
+			$<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor> # Warn if a class has virtual functions but no virtual destructor
 			-Wfloat-conversion # Warn about float conversions
 		)
 
@@ -147,7 +147,7 @@ function(cu_private_set_default_warning_flags TARGET_NAME)
 			-Werror # Treat warnings as errors
 			-Wextra # Enable extra warnings
 			-Wpedantic # Enable pedantic warnings
-			-Wnon-virtual-dtor # Warn if a class has virtual functions but no virtual destructor
+			$<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor> # Warn if a class has virtual functions but no virtual destructor
 			-Wfloat-conversion # Warn about float conversions
 		)
 	else()
