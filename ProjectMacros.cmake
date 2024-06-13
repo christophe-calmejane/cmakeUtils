@@ -122,6 +122,15 @@ function(cu_private_set_warning_flags TARGET_NAME)
 endfunction()
 
 #
+function(cu_set_output_colorization TARGET_NAME)
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		target_compile_options(${TARGET_NAME} PRIVATE -fcolor-diagnostics)
+	elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+		target_compile_options(${TARGET_NAME} PRIVATE -fdiagnostics-color=always)
+	endif()
+endfunction()
+
+#
 function(cu_private_set_default_warning_flags TARGET_NAME)
 	if(MSVC)
 		# Don't use Wall on MSVC, it prints too many stupid warnings
@@ -793,9 +802,10 @@ endfunction()
 #  - "ALIAS_NAME <name>" => Force the alias name for the target (ie. ${PROJECT_NAME}::name) (defaults to either 'static' or 'shared')
 #  - "UNICODE" => Will force unicode character set for the target (Windows only) instead of multi-byte character set (default)
 #  - "NO_COPY_DEBUG_SYMBOLS" => Won't copy debug symbols from the build folder when set, but it will still generate them.
+#  - "NO_OUTPUT_COLORIZATION" => Will disable colorization of the output
 function(cu_setup_library_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET;NO_DEBUG_SYMBOLS;UNICODE;NO_COPY_DEBUG_SYMBOLS" "ALIAS_NAME" "" ${ARGN})
+	cmake_parse_arguments(CUSLO "NO_MAX_WARNINGS;NO_ALIAS_TARGET;NO_DEBUG_SYMBOLS;UNICODE;NO_COPY_DEBUG_SYMBOLS;NO_OUTPUT_COLORIZATION" "ALIAS_NAME" "" ${ARGN})
 
 	# Check legacy parameters
 	if(CUSLO_NO_MAX_WARNINGS)
@@ -902,6 +912,11 @@ function(cu_setup_library_options TARGET_NAME)
 	# Setup ASAN options
 	if(CU_ENABLE_ASAN)
 		cu_setup_asan_options(${TARGET_NAME})
+	endif()
+
+	# Colorize the output
+	if (NOT CUSLO_NO_OUTPUT_COLORIZATION)
+		cu_set_output_colorization(${TARGET_NAME})
 	endif()
 
 	# Set the warning flags for the target
@@ -1090,9 +1105,10 @@ endfunction()
 #  - "NO_DEBUG_SYMBOLS" => Will not generate debug symbols for the target
 #  - "UNICODE" => Will force unicode character set for the target (Windows only) instead of multi-byte character set (default)
 #  - "NO_COPY_DEBUG_SYMBOLS" => Won't copy debug symbols from the build folder when set, but it will still generate them.
+#  - "NO_OUTPUT_COLORIZATION" => Will disable colorization of the output
 function(cu_setup_executable_options TARGET_NAME)
 	# Parse arguments
-	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS;UNICODE;NO_COPY_DEBUG_SYMBOLS" "" "" ${ARGN})
+	cmake_parse_arguments(CUSEO "NO_MAX_WARNINGS;NO_DEBUG_SYMBOLS;UNICODE;NO_COPY_DEBUG_SYMBOLS;NO_OUTPUT_COLORIZATION" "" "" ${ARGN})
 
 	# Check legacy parameters
 	if(CUSEO_NO_MAX_WARNINGS)
@@ -1126,6 +1142,11 @@ function(cu_setup_executable_options TARGET_NAME)
 	# Setup ASAN options
 	if(CU_ENABLE_ASAN)
 		cu_setup_asan_options(${TARGET_NAME})
+	endif()
+
+	# Colorize the output
+	if (NOT CUSEO_NO_OUTPUT_COLORIZATION)
+		cu_set_output_colorization(${TARGET_NAME})
 	endif()
 
 	# Set the warning flags for the target
