@@ -313,10 +313,17 @@ function(cu_deploy_runtime_target TARGET_NAME)
 				if(NOT _IS_BUNDLE)
 					message(WARNING "Qt on macOS is only supported for BUNDLE applications (Convert ${TARGET_NAME} to a BUNDLE application)")
 				else()
-					STRING(REPLACE "\"" "" UNQUOTED_CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})
-					string(APPEND DEPLOY_SCRIPT_CONTENT
-						"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" \"$<TARGET_BUNDLE_DIR:${TARGET_NAME}>\" -verbose=0 -qmldir=${CUDRT_QML_DIR} \"-codesign=${UNQUOTED_CODESIGN_IDENTITY}\")\n"
-					)
+					# If code signing is requested
+					if(CUDRT_SIGN)
+						STRING(REPLACE "\"" "" UNQUOTED_CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})
+						string(APPEND DEPLOY_SCRIPT_CONTENT
+							"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" \"$<TARGET_BUNDLE_DIR:${TARGET_NAME}>\" -verbose=0 -qmldir=${CUDRT_QML_DIR} \"-codesign=${UNQUOTED_CODESIGN_IDENTITY}\")\n"
+						)
+					else()
+						string(APPEND DEPLOY_SCRIPT_CONTENT
+							"execute_process(COMMAND \"${DEPLOY_QT_COMMAND}\" \"$<TARGET_BUNDLE_DIR:${TARGET_NAME}>\" -verbose=0 -qmldir=${CUDRT_QML_DIR})\n"
+						)
+					endif()
 				endif()
 			endif()
 		endif()
