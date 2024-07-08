@@ -61,6 +61,7 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(CU_TARGET_ARCH "64")
 endif()
 set(CU_ARCH "UNKNOWN") # New variable to replace CU_TARGET_ARCH (will be computed later in the file)
+set(CU_DOTNET_RUNTIME "UNKNOWN") # (will be computed later in the file)
 
 if(NOT DEFINED PROJECT_NAME)
 	message(FATAL_ERROR "project() must be called before including ProjectMacros.cmake")
@@ -97,6 +98,7 @@ function(cu_private_detect_arch)
 		else()
 			set(CU_ARCH "x86")
 		endif()
+		set(CU_DOTNET_RUNTIME "win-${CU_ARCH}")
 
 	elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
 		# Extract the first architecture from CMAKE_OSX_ARCHITECTURES
@@ -112,6 +114,11 @@ function(cu_private_detect_arch)
 		else()
 			message(FATAL_ERROR "Unsupported CMAKE_OSX_ARCHITECTURES: ${_OSX_ARCH}")
 		endif()
+		if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+			set(CU_DOTNET_RUNTIME "osx-${CU_ARCH}")
+		else()
+			set(CU_DOTNET_RUNTIME "ios-${CU_ARCH}") # Not sure about this on
+		endif()
 
 	elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 		# Currently only detecting system architecture on Linux (not cross-compiling). We usually compile for the same architecture as the system.
@@ -124,6 +131,7 @@ function(cu_private_detect_arch)
 		else()
 			message(FATAL_ERROR "Unsupported CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 		endif()
+		set(CU_DOTNET_RUNTIME "linux-${CU_ARCH}")
 
 	elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
 		# Extract the first architecture from ANDROID_ABI
@@ -135,6 +143,7 @@ function(cu_private_detect_arch)
 		else()
 			message(FATAL_ERROR "Unsupported ANDROID_ABI: ${_ANDROID_ARCH}")
 		endif()
+		set(CU_DOTNET_RUNTIME "android-${CU_ARCH}") # Not sure about this one
 
 	else()
 		message(FATAL_ERROR "Unsupported CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
@@ -144,7 +153,7 @@ function(cu_private_detect_arch)
 	cmake_minimum_required(VERSION 3.25) # return(PROPAGATE) added in cmake 3.25
 	cmake_policy(SET CMP0140 NEW)
 
-	return(PROPAGATE CU_ARCH)
+	return(PROPAGATE CU_ARCH CU_DOTNET_RUNTIME)
 endfunction()
 
 #
