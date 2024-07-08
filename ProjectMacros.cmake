@@ -56,10 +56,11 @@ set(CU_PROJECT_MACROS_INCLUDED true)
 set(CU_TOP_LEVEL_SOURCE_DIR "${PROJECT_SOURCE_DIR}") # Folder containing the main CMakeLists.txt for the first repository including this file
 set(CU_TOP_LEVEL_BINARY_DIR "${PROJECT_BINARY_DIR}") # Folder containing the top level binary files (CMake root output folder)
 set(CMAKE_MACROS_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
-set(CU_TARGET_ARCH "32")
+set(CU_TARGET_ARCH "32") # Legacy variable
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(CU_TARGET_ARCH "64")
 endif()
+set(CU_ARCH "UNKNOWN") # New variable to replace CU_TARGET_ARCH (will be computed later in the file)
 
 if(NOT DEFINED PROJECT_NAME)
 	message(FATAL_ERROR "project() must be called before including ProjectMacros.cmake")
@@ -87,6 +88,66 @@ include(${CMAKE_CURRENT_LIST_DIR}/helpers/TargetSetupDeploy.cmake)
 
 ###############################################################################
 # Internal functions
+function(cu_private_detect_arch)
+	# Compute build architecture
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		# Currently only detecting x86 and x64 on Windows (no ARM support yet)
+		if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+			set(CU_ARCH "x64")
+		else()
+			set(CU_ARCH "x86")
+		endif()
+
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+		# Extract the first architecture from CMAKE_OSX_ARCHITECTURES
+		list(GET CMAKE_OSX_ARCHITECTURES 0 _OSX_ARCH)
+		if(_OSX_ARCH STREQUAL "x86_64")
+			set(CU_ARCH "x64")
+		elseif(_OSX_ARCH STREQUAL "arm64")
+			set(CU_ARCH "arm64")
+		elseif(_OSX_ARCH STREQUAL "armv7")
+			set(CU_ARCH "arm")
+		elseif(_OSX_ARCH STREQUAL "armv7s")
+			set(CU_ARCH "arm")
+		else()
+			message(FATAL_ERROR "Unsupported CMAKE_OSX_ARCHITECTURES: ${_OSX_ARCH}")
+		endif()
+
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		# Currently only detecting system architecture on Linux (not cross-compiling). We usually compile for the same architecture as the system.
+		if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+			set(CU_ARCH "x64")
+		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86")
+			set(CU_ARCH "x86")
+		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+			set(CU_ARCH "arm64")
+		else()
+			message(FATAL_ERROR "Unsupported CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+		endif()
+
+	elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+		# Extract the first architecture from ANDROID_ABI
+		list(GET ANDROID_ABI 0 _ANDROID_ARCH)
+		if(_ANDROID_ARCH STREQUAL "x86_64")
+			set(CU_ARCH "x64")
+		elseif(_ANDROID_ARCH STREQUAL "arm64-v8a")
+			set(CU_ARCH "arm64")
+		else()
+			message(FATAL_ERROR "Unsupported ANDROID_ABI: ${_ANDROID_ARCH}")
+		endif()
+
+	else()
+		message(FATAL_ERROR "Unsupported CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+	endif()
+
+	# Check for cmake minimum version
+	cmake_minimum_required(VERSION 3.25) # return(PROPAGATE) added in cmake 3.25
+	cmake_policy(SET CMP0140 NEW)
+
+	return(PROPAGATE CU_ARCH)
+endfunction()
+
+#
 function(cu_private_set_warning_flags TARGET_NAME)
 	# Get the compiler
 	if(MSVC)
@@ -1813,8 +1874,11 @@ macro(cu_setup_project_version_variables PRJ_VERSION)
 	endif()
 endmacro()
 
+# Detect architecture
+cu_private_detect_arch()
+
 # Print version message
-message(STATUS "CMake Macros v11.0")
+message(STATUS "CMake Macros v11.1")
 
 # Load and parse an optional cmake file, allowing overriding variables and other things before really processing the main CMakeLists.txt file
 include("local_definitions.cmake" OPTIONAL)
