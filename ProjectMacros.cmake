@@ -1700,6 +1700,18 @@ function(_cu_vscode_write_workspace)
 endfunction()
 
 ###############################################################################
+# Utility function to download a file from an URL.
+function(cu_download_file URL DESTINATION)
+	file(DOWNLOAD ${URL} ${DESTINATION} STATUS DOWNLOAD_RESULT)
+	list(GET DOWNLOAD_RESULT 0 ERR_CODE)
+	if(NOT ${ERR_CODE} EQUAL 0)
+		list(GET DOWNLOAD_RESULT 1 ERR_MSG)
+		message(FATAL_ERROR "Failed to download file from ${URL}: ${ERR_MSG}")
+	endif()
+	message(STATUS "Downloaded file from ${URL} to ${DESTINATION}")
+endfunction()
+
+###############################################################################
 # Helper function to build the marketing version string based on input variables
 function(cu_build_marketing_version OUTPUT_VAR PRJ_VERSION MARKETING_DIGITS MARKETING_POSTFIX)
 	# Split passed version
