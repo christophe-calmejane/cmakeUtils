@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk" DefaultTargets="Pack">
+  <PropertyGroup>
+    <TargetFramework>@CU_DOTNET_FRAMEWORK_VERSION@</TargetFramework>
+    <PackageId>@PROJECT_NAME@</PackageId>
+    <Version>@CU_PROJECT_FRIENDLY_VERSION@</Version>
+    <Authors>@CU_COPYRIGHT_HOLDER@</Authors>
+    <Company>@CU_COPYRIGHT_HOLDER@</Company>
+    <Product>@PROJECT_NAME@</Product>
+    <PackageDescription>@CU_PROJECT_PRODUCTDESCRIPTION@</PackageDescription>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Title>@PROJECT_NAME@</Title>
+    <AssemblyName>@PROJECT_NAME@</AssemblyName>
+    <EnableDefaultItems>false</EnableDefaultItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="@CU_ROOT_DIR@/README.md">
+      <Pack>true</Pack>
+      <PackagePath>README.md</PackagePath>
+    </Content>
+@CSPROJ_COMPILE_ITEMS@
+@CSPROJ_RUNTIME_ITEMS@
+  </ItemGroup>
+</Project>
