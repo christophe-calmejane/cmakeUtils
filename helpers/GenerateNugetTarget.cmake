@@ -93,7 +93,7 @@ function(cu_generate_csharp_nuget_target)
 	# Add a custom target to pack the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-pack ALL
-		COMMAND dotnet pack "${CMAKE_CURRENT_BINARY_DIR}/${CSPROJ_FILE_NAME}-nuget/${CSPROJ_FILE_NAME}.csproj"
+		COMMAND dotnet pack "${CMAKE_CURRENT_BINARY_DIR}/${CSPROJ_FILE_NAME}-nuget/${CSPROJ_FILE_NAME}.csproj" -c ${CMAKE_BUILD_TYPE}
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS ${CUGCSNT_TARGET_NAME}
 	)
@@ -101,7 +101,7 @@ function(cu_generate_csharp_nuget_target)
 	# Add a custom target to push the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-push # ALL
-		COMMAND dotnet nuget push -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CMAKE_CURRENT_BINARY_DIR}/${CSPROJ_FILE_NAME}-nuget/bin/Release/${PROJECT_NAME}.${CU_PROJECT_FRIENDLY_VERSION}.nupkg"
+		COMMAND dotnet nuget push -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CMAKE_CURRENT_BINARY_DIR}/${CSPROJ_FILE_NAME}-nuget/bin/${CMAKE_BUILD_TYPE}/${PROJECT_NAME}.${CU_PROJECT_FRIENDLY_VERSION}.nupkg"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS ${CUGCSNT_TARGET_NAME}-nuget-pack
 	)
