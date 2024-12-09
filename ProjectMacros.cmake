@@ -1011,6 +1011,21 @@ function(cu_setup_library_options TARGET_NAME)
 	# Add a postfix in debug mode
 	set_target_properties(${TARGET_NAME} PROPERTIES DEBUG_POSTFIX "-d")
 
+	if(${targetType} STREQUAL "SHARED_LIBRARY")
+		# Set rpath for macOS (force dependent shared libraries to load from the same directory as this library)
+		if(APPLE)
+			set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "@loader_path")
+			# Directly use install rpath for command line apps too
+			set_target_properties(${TARGET_NAME} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
+
+		# Set rpath for linux (force dependent shared libraries to load from the same directory as this library)
+		elseif(NOT WIN32)
+			set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN")
+			# Directly use install rpath
+			set_target_properties(${TARGET_NAME} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
+		endif()
+	endif()
+
 	# Set xcode automatic codesigning
 	cu_setup_xcode_codesigning(${TARGET_NAME})
 
