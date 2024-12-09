@@ -78,6 +78,13 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	set(CMAKE_INSTALL_PREFIX "./Install" CACHE PATH "default install path" FORCE)
 endif()
 
+# Convert installation path to absolute path (if not already)
+if(NOT IS_ABSOLUTE "${CMAKE_INSTALL_PREFIX}")
+	# Check for cmake minimum version
+	cmake_minimum_required(VERSION 3.20) # cmake_path added in cmake 3.20
+	cmake_path(ABSOLUTE_PATH CMAKE_INSTALL_PREFIX BASE_DIRECTORY "${CU_TOP_LEVEL_BINARY_DIR}" NORMALIZE OUTPUT_VARIABLE CMAKE_INSTALL_PREFIX)
+endif()
+
 # Setup "Release" build type, if not specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	message(STATUS "Setting build type to 'Release' as none was specified.")
