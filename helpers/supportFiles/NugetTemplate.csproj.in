@@ -19,6 +19,7 @@
       <PackagePath>README.md</PackagePath>
     </Content>
 @CSPROJ_COMPILE_ITEMS@
-@CSPROJ_RUNTIME_ITEMS@
+${CSPROJ_RUNTIME_ITEMS}
+@CSPROJ_REFERENCE_ITEMS@
   </ItemGroup>
 </Project>
