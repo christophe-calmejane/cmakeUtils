@@ -10,6 +10,10 @@ set(CU_TARGET_SETUP_DEPLOY_INCLUDED true)
 # Some global variables
 set(CU_TARGET_SETUP_DEPLOY_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 
+# Due to a bug in some CMake versions, force CMP0057
+cmake_policy(PUSH)
+cmake_policy(SET CMP0057 NEW) # Support new IN_LIST if() operator
+
 ##################################
 # Internal function
 function(cu_private_target_list_link_libraries TARGET_NAME CLOSEST_RUNTIME_PARENT LIBRARY_DEPENDENCIES_OUTPUT QT_DEPENDENCIES_OUTPUT)
@@ -436,3 +440,5 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		VERBATIM
 	)
 endfunction()
+
+cmake_policy(POP)

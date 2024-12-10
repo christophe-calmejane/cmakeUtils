@@ -78,6 +78,13 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	set(CMAKE_INSTALL_PREFIX "./Install" CACHE PATH "default install path" FORCE)
 endif()
 
+# Convert installation path to absolute path (if not already)
+if(NOT IS_ABSOLUTE "${CMAKE_INSTALL_PREFIX}")
+	# Check for cmake minimum version
+	cmake_minimum_required(VERSION 3.20) # cmake_path added in cmake 3.20
+	cmake_path(ABSOLUTE_PATH CMAKE_INSTALL_PREFIX BASE_DIRECTORY "${CU_TOP_LEVEL_BINARY_DIR}" NORMALIZE OUTPUT_VARIABLE CMAKE_INSTALL_PREFIX)
+endif()
+
 # Setup "Release" build type, if not specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	message(STATUS "Setting build type to 'Release' as none was specified.")
@@ -617,8 +624,7 @@ function(cu_copy_symbols TARGET_NAME)
 				POST_BUILD
 				COMMAND ${CMAKE_COMMAND} -E make_directory "${SYMBOLS_DEST_PATH}"
 				COMMAND ${CMAKE_COMMAND} -E copy_directory "${DSYM_SRC}" "${SYMBOLS_DEST_PATH}${DSYM_DST_NAME}"
-				COMMENT "Copying ${TARGET_NAME} symbols"
-				COMMENT "Extracting dSYM for ${TARGET_NAME}"
+				COMMENT "Copying ${TARGET_NAME} symbols and extracting dSYM for ${TARGET_NAME}"
 				VERBATIM
 			)
 		endif()
@@ -1003,6 +1009,21 @@ function(cu_setup_library_options TARGET_NAME)
 	
 	# Add a postfix in debug mode
 	set_target_properties(${TARGET_NAME} PROPERTIES DEBUG_POSTFIX "-d")
+
+	if(${targetType} STREQUAL "SHARED_LIBRARY")
+		# Set rpath for macOS (force dependent shared libraries to load from the same directory as this library)
+		if(APPLE)
+			set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "@loader_path")
+			# Directly use install rpath for command line apps too
+			set_target_properties(${TARGET_NAME} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
+
+		# Set rpath for linux (force dependent shared libraries to load from the same directory as this library)
+		elseif(NOT WIN32)
+			set_target_properties(${TARGET_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN")
+			# Directly use install rpath
+			set_target_properties(${TARGET_NAME} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
+		endif()
+	endif()
 
 	# Set xcode automatic codesigning
 	cu_setup_xcode_codesigning(${TARGET_NAME})
