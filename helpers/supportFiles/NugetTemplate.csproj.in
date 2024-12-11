@@ -11,6 +11,7 @@
     <Title>@PROJECT_NAME@</Title>
     <AssemblyName>@PROJECT_NAME@</AssemblyName>
     <EnableDefaultItems>false</EnableDefaultItems>
+    <RuntimeIdentifier>@CU_DOTNET_RUNTIME@</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
