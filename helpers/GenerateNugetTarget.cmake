@@ -186,7 +186,7 @@ function(cu_generate_csharp_nuget_target)
 	# Add a custom target to pack the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-pack
-		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c ${CMAKE_BUILD_TYPE}
+		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c ${CONFIGURATION}
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		# DEPENDS install # Be warned that (at least with ninja) this might not be the root 'install' target, but the one from the same directory that cu_generate_csharp_nuget_target was called from
 		DEPENDS ${CUGCSNT_TARGET_NAME}-generate-csproj
@@ -195,7 +195,7 @@ function(cu_generate_csharp_nuget_target)
 	# Add a custom target to push the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-push
-		COMMAND dotnet nuget push -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CMAKE_BUILD_TYPE}/${PROJECT_NAME}.${CU_PROJECT_FRIENDLY_VERSION}.nupkg"
+		COMMAND dotnet nuget push -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${PROJECT_NAME}.${CU_PROJECT_FRIENDLY_VERSION}.nupkg"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS ${CUGCSNT_TARGET_NAME}-nuget-pack
 	)
