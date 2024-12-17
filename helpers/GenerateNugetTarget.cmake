@@ -21,11 +21,12 @@ set(CU_GENERATE_CSHARP_NUGET_TARGET_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 #  - "CS_PACKAGE_DEPENDENCIES <list of dependencies>" => List of package dependencies to add to the csproj file (default: empty). A dependency is in this format: "<PackageName>:<Version>"
 #  - "NUGET_SOURCE_URL <nuget source url>" => Nuget source url to use (default: https://api.nuget.org/v3/index.json)
 #  - "NUGET_API_KEY <nuget api key>" => Nuget api key to use (default: empty)
+#  - "CONFIGURATION <configuration>" => Configuration to use (default: ${CMAKE_BUILD_TYPE})
 function(cu_generate_csharp_nuget_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.27) # TARGET_LINKER_FILE added in cmake 3.27
 
-	cmake_parse_arguments(CUGCSNT "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;NUGET_SOURCE_URL;NUGET_API_KEY" "CS_SOURCE_FOLDERS;CS_PACKAGE_DEPENDENCIES" ${ARGN})
+	cmake_parse_arguments(CUGCSNT "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;NUGET_SOURCE_URL;NUGET_API_KEY;CONFIGURATION" "CS_SOURCE_FOLDERS;CS_PACKAGE_DEPENDENCIES" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUGCSNT_TARGET_NAME)
@@ -37,6 +38,11 @@ function(cu_generate_csharp_nuget_target)
 	set(CSPROJ_TEMPLATE_PATH "${CU_GENERATE_CSHARP_NUGET_TARGET_FOLDER}/supportFiles/NugetTemplate.csproj.in")
 	set(NUGET_SOURCE_URL "https://api.nuget.org/v3/index.json")
 	set(NUGET_API_KEY "")
+	if(DEFINED CMAKE_BUILD_TYPE)
+		set(CONFIGURATION ${CMAKE_BUILD_TYPE})
+	else()
+		set(CONFIGURATION "Release")
+	endif()
 
 	# Override default values
 	if(CUGCSNT_CSPROJ_FILE_NAME)
@@ -50,6 +56,9 @@ function(cu_generate_csharp_nuget_target)
 	endif()
 	if(CUGCSNT_NUGET_API_KEY)
 		set(NUGET_API_KEY -k ${CUGCSNT_NUGET_API_KEY})
+	endif()
+	if(CUGCSNT_CONFIGURATION)
+		set(CONFIGURATION ${CUGCSNT_CONFIGURATION})
 	endif()
 	# Check if the template file exists
 	if(NOT EXISTS ${CSPROJ_TEMPLATE_PATH})
@@ -160,6 +169,7 @@ function(cu_generate_csharp_nuget_target)
 	file(GENERATE
 		OUTPUT ${GENERATE_CSPROJ_SCRIPT}
 		CONTENT ${GENERATE_CSPROJ_SCRIPT_CONTENT}
+		CONDITION $<CONFIG:${CONFIGURATION}>
 	)
 
 	# Print message
