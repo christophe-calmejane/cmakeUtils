@@ -19,6 +19,7 @@ set(CU_GENERATE_CSHARP_NUGET_TARGET_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 #  - "CSPROJ_FILE_NAME <csproj file name>" => Name of the csproj file to generate (default: TARGET_NAME)
 #  - "CS_SOURCE_FOLDERS <list of source folders>" => List of source folders to compile (default: empty)
 #  - "CS_PACKAGE_DEPENDENCIES <list of dependencies>" => List of package dependencies to add to the csproj file (default: empty). A dependency is in this format: "<PackageName>:<Version>"
+#  - "NUGET_PACK_TARGET_DEPENDENCIES <list of dependencies>" => List of cmake targets to be built before the nuget pack target (default: empty)
 #  - "NUGET_SOURCE_URL <nuget source url>" => Nuget source url to use (default: https://api.nuget.org/v3/index.json)
 #  - "NUGET_API_KEY <nuget api key>" => Nuget api key to use (default: empty)
 #  - "CONFIGURATION <configuration>" => Configuration to use (default: ${CMAKE_BUILD_TYPE})
@@ -28,7 +29,7 @@ function(cu_generate_csharp_nuget_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.27) # TARGET_LINKER_FILE added in cmake 3.27
 
-	cmake_parse_arguments(CUGCSNT "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;NUGET_SOURCE_URL;NUGET_API_KEY;CONFIGURATION;PACKAGE_NAME;PACKAGE_VERSION" "CS_SOURCE_FOLDERS;CS_PACKAGE_DEPENDENCIES" ${ARGN})
+	cmake_parse_arguments(CUGCSNT "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;NUGET_SOURCE_URL;NUGET_API_KEY;CONFIGURATION;PACKAGE_NAME;PACKAGE_VERSION" "CS_SOURCE_FOLDERS;CS_PACKAGE_DEPENDENCIES;NUGET_PACK_TARGET_DEPENDENCIES" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUGCSNT_TARGET_NAME)
@@ -194,13 +195,19 @@ function(cu_generate_csharp_nuget_target)
 		DEPENDS ${CUGCSNT_TARGET_NAME}
 	)
 
+	# Generate the list of dependencies
+	set(NUGET_PACK_TARGET_DEPENDENCIES "${CUGCSNT_TARGET_NAME}-generate-csproj")
+	foreach(TARGET_DEPENDENCY ${CUGCSNT_NUGET_PACK_TARGET_DEPENDENCIES})
+		list(APPEND NUGET_PACK_TARGET_DEPENDENCIES ${TARGET_DEPENDENCY})
+	endforeach()
+
 	# Add a custom target to pack the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-pack
 		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c ${CONFIGURATION}
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-		# DEPENDS install # Be warned that (at least with ninja) this might not be the root 'install' target, but the one from the same directory that cu_generate_csharp_nuget_target was called from
-		DEPENDS ${CUGCSNT_TARGET_NAME}-generate-csproj
+		BYPRODUCTS "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${PACKAGE_NAME}.${PACKAGE_VERSION}.nupkg"
+		DEPENDS ${NUGET_PACK_TARGET_DEPENDENCIES}
 	)
 
 	# Add a custom target to push the nuget
