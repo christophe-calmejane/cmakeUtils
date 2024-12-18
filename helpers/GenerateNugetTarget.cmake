@@ -22,11 +22,13 @@ set(CU_GENERATE_CSHARP_NUGET_TARGET_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 #  - "NUGET_SOURCE_URL <nuget source url>" => Nuget source url to use (default: https://api.nuget.org/v3/index.json)
 #  - "NUGET_API_KEY <nuget api key>" => Nuget api key to use (default: empty)
 #  - "CONFIGURATION <configuration>" => Configuration to use (default: ${CMAKE_BUILD_TYPE})
+#  - "PACKAGE_NAME <package name>" => Name of the package (default: ${PROJECT_NAME})
+#  - "PACKAGE_VERSION <package version>" => Version of the package (default: ${CU_PROJECT_FRIENDLY_VERSION})
 function(cu_generate_csharp_nuget_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.27) # TARGET_LINKER_FILE added in cmake 3.27
 
-	cmake_parse_arguments(CUGCSNT "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;NUGET_SOURCE_URL;NUGET_API_KEY;CONFIGURATION" "CS_SOURCE_FOLDERS;CS_PACKAGE_DEPENDENCIES" ${ARGN})
+	cmake_parse_arguments(CUGCSNT "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;NUGET_SOURCE_URL;NUGET_API_KEY;CONFIGURATION;PACKAGE_NAME;PACKAGE_VERSION" "CS_SOURCE_FOLDERS;CS_PACKAGE_DEPENDENCIES" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUGCSNT_TARGET_NAME)
@@ -43,6 +45,8 @@ function(cu_generate_csharp_nuget_target)
 	else()
 		set(CONFIGURATION "Release")
 	endif()
+	set(PACKAGE_NAME ${PROJECT_NAME})
+	set(PACKAGE_VERSION ${CU_PROJECT_FRIENDLY_VERSION})
 
 	# Override default values
 	if(CUGCSNT_CSPROJ_FILE_NAME)
@@ -60,6 +64,13 @@ function(cu_generate_csharp_nuget_target)
 	if(CUGCSNT_CONFIGURATION)
 		set(CONFIGURATION ${CUGCSNT_CONFIGURATION})
 	endif()
+	if(CUGCSNT_PACKAGE_NAME)
+		set(PACKAGE_NAME ${CUGCSNT_PACKAGE_NAME})
+	endif()
+	if(CUGCSNT_PACKAGE_VERSION)
+		set(PACKAGE_VERSION ${CUGCSNT_PACKAGE_VERSION})
+	endif()
+
 	# Check if the template file exists
 	if(NOT EXISTS ${CSPROJ_TEMPLATE_PATH})
 		message(FATAL_ERROR "Specified csproj template file does not exist: ${CSPROJ_TEMPLATE_PATH}")
@@ -195,7 +206,7 @@ function(cu_generate_csharp_nuget_target)
 	# Add a custom target to push the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-push
-		COMMAND dotnet nuget push -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${PROJECT_NAME}.${CU_PROJECT_FRIENDLY_VERSION}.nupkg"
+		COMMAND dotnet nuget push -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${PACKAGE_NAME}.${PACKAGE_VERSION}.nupkg" --skip-duplicate
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS ${CUGCSNT_TARGET_NAME}-nuget-pack
 	)

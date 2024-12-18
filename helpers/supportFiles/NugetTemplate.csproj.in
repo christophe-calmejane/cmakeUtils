@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk" DefaultTargets="Pack">
   <PropertyGroup>
     <TargetFramework>@CU_DOTNET_FRAMEWORK_VERSION@</TargetFramework>
-    <PackageId>@PROJECT_NAME@</PackageId>
-    <Version>@CU_PROJECT_FRIENDLY_VERSION@</Version>
+    <PackageId>@PACKAGE_NAME@</PackageId>
+    <Version>@PACKAGE_VERSION@</Version>
     <Authors>@CU_COPYRIGHT_HOLDER@</Authors>
     <Company>@CU_COPYRIGHT_HOLDER@</Company>
-    <Product>@PROJECT_NAME@</Product>
+    <Product>@PACKAGE_NAME@</Product>
     <PackageDescription>@CU_PROJECT_PRODUCTDESCRIPTION@</PackageDescription>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Title>@PROJECT_NAME@</Title>
-    <AssemblyName>@PROJECT_NAME@</AssemblyName>
+    <Title>@PACKAGE_NAME@</Title>
+    <AssemblyName>@PACKAGE_NAME@</AssemblyName>
     <EnableDefaultItems>false</EnableDefaultItems>
     <RuntimeIdentifier>@CU_DOTNET_RUNTIME@</RuntimeIdentifier>
   </PropertyGroup>
