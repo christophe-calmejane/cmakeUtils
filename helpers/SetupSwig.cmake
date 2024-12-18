@@ -35,7 +35,7 @@ endfunction()
 #  - "INTERFACE_FILE <SWIG interface file>" => Path of the SWIG interface file
 #  - "LANGUAGES <target language> [<other target language>...]" => List of target languages to generate bindings for
 # Optional parameters:
-#  - "SWIG_TARGET_PREFIX <prefix name to use>" => Force a specific prefix for the SWIG target instead of the default (TARGET_NAME)
+#  - "SWIG_TARGET_PREFIX <prefix name to use>" => Force a specific prefix for the SWIG target (Default: ${TARGET_NAME})
 #  - "REQUIRED" => Flag indicating if an error should be thrown in case swig or a language is not found
 #  - "INSTALL_SUPPORT_FILES" => Flag indicating if support files are installed
 #  - "VERSION <version>" => Minimum version of SWIG required
@@ -44,6 +44,8 @@ endfunction()
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_CSHARP <List of compile options>" -> List of compile options to add to the SWIG interface file for C#
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_LUA <List of compile options>" -> List of compile options to add to the SWIG interface file for LUA
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_PYTHON <List of compile options>" -> List of compile options to add to the SWIG interface file for PYTHON
+# Output folders:
+#  - Support Files output directory: ${CMAKE_CURRENT_BINARY_DIR}/SWIG_${SWIG_TARGET_PREFIX}/${SWIG_LANG}.files
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
@@ -110,11 +112,11 @@ function(cu_setup_swig_target)
 		# Generate a target for each supported swig languages
 		foreach(SWIG_LANG ${CUSST_LANGUAGES})
 			# Define some variables
-			set(SWIG_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/SWIG_${SWIG_LANG}")
 			set(SWIG_TARGET_NAME ${CUSST_TARGET_NAME}-${SWIG_LANG})
 			if(DEFINED CUSST_SWIG_TARGET_PREFIX)
 				set(SWIG_TARGET_NAME ${CUSST_SWIG_TARGET_PREFIX}-${SWIG_LANG})
 			endif()
+			set(SWIG_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/SWIG_${SWIG_TARGET_NAME}")
 			set(SWIG_BUNDLE_IDENTIFIER "${CU_REVERSE_DOMAIN_NAME}.${SWIG_TARGET_NAME}")
 			message(STATUS "Generating SWIG bindings for ${SWIG_LANG}: ${SWIG_TARGET_NAME}")
 
