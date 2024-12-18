@@ -44,13 +44,12 @@ endfunction()
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_CSHARP <List of compile options>" -> List of compile options to add to the SWIG interface file for C#
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_LUA <List of compile options>" -> List of compile options to add to the SWIG interface file for LUA
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_PYTHON <List of compile options>" -> List of compile options to add to the SWIG interface file for PYTHON
-# Output folders:
-#  - Support Files output directory: ${CMAKE_CURRENT_BINARY_DIR}/SWIG_${SWIG_TARGET_PREFIX}/${SWIG_LANG}.files
+#  - "OUTVAR_PREFIX_SUPPORT_FILES_FOLDER <variable name>" => Variable name prefix to store the support files folder. Full variable name will be ${OUTVAR_PREFIX_SUPPORT_FILES_FOLDER}_${SWIG_LANG}
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
 
-	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS;INTERFACE_FILE_COMPILE_OPTIONS_CSHARP;INTERFACE_FILE_COMPILE_OPTIONS_LUA;INTERFACE_FILE_COMPILE_OPTIONS_PYTHON" ${ARGN})
+	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION;OUTVAR_PREFIX_SUPPORT_FILES_FOLDER" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS;INTERFACE_FILE_COMPILE_OPTIONS_CSHARP;INTERFACE_FILE_COMPILE_OPTIONS_LUA;INTERFACE_FILE_COMPILE_OPTIONS_PYTHON" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUSST_TARGET_NAME)
@@ -156,8 +155,16 @@ function(cu_setup_swig_target)
 				set_property(SOURCE ${CUSST_INTERFACE_FILE} PROPERTY COMPILE_OPTIONS ${SWIG_FILE_COMPILE_OPTIONS})
 			endif()
 
+			# Support files output directory
+			set(SWIG_SUPPORT_FILES_FOLDER "${SWIG_FOLDER}/${SWIG_LANG}.files")
+
+			# If output variable for support files folder is provided, store it
+			if(CUSST_OUTVAR_PREFIX_SUPPORT_FILES_FOLDER)
+				set(${CUSST_OUTVAR_PREFIX_SUPPORT_FILES_FOLDER}_${SWIG_LANG} "${SWIG_SUPPORT_FILES_FOLDER}" PARENT_SCOPE)
+			endif()
+
 			# Create the target library as SHARED (required for dynamic loading) (Cannot use MODULE as it fails to generate a proper FRAMEWORK on iOS)
-			swig_add_library(${SWIG_TARGET_NAME} TYPE SHARED LANGUAGE ${SWIG_LANG} SOURCES ${CUSST_INTERFACE_FILE} OUTFILE_DIR "${SWIG_FOLDER}" OUTPUT_DIR "${SWIG_FOLDER}/${SWIG_LANG}.files")
+			swig_add_library(${SWIG_TARGET_NAME} TYPE SHARED LANGUAGE ${SWIG_LANG} SOURCES ${CUSST_INTERFACE_FILE} OUTFILE_DIR "${SWIG_FOLDER}" OUTPUT_DIR "${SWIG_SUPPORT_FILES_FOLDER}")
 
 			# Set compile flags
 			#set_property(TARGET ${SWIG_TARGET_NAME} PROPERTY SWIG_COMPILE_DEFINITIONS ${SWIG_COMPILE_FLAGS})
@@ -182,7 +189,7 @@ function(cu_setup_swig_target)
 
 			# Should we install support files
 			if(CUSST_INSTALL_SUPPORT_FILES)
-				install(DIRECTORY "${SWIG_FOLDER}/${SWIG_LANG}.files/" CONFIGURATIONS ${configurationsList} DESTINATION "swig/${SWIG_LANG}")
+				install(DIRECTORY "${SWIG_SUPPORT_FILES_FOLDER}/" CONFIGURATIONS ${configurationsList} DESTINATION "swig/${SWIG_LANG}")
 			endif()
 		endforeach()
 
