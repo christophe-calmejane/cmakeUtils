@@ -47,7 +47,7 @@ endfunction()
 #  - "OUTVAR_PREFIX_SUPPORT_FILES_FOLDER <variable name>" => Variable name prefix to store the support files folder. Full variable name will be ${OUTVAR_PREFIX_SUPPORT_FILES_FOLDER}_${SWIG_LANG}
 function(cu_setup_swig_target)
 	# Check for cmake minimum version
-	cmake_minimum_required(VERSION 3.14)
+	cmake_minimum_required(VERSION 3.29) # Required due to bug in previous versions (https://gitlab.kitware.com/cmake/cmake/-/issues/25405)
 
 	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION;OUTVAR_PREFIX_SUPPORT_FILES_FOLDER" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS;INTERFACE_FILE_COMPILE_OPTIONS_CSHARP;INTERFACE_FILE_COMPILE_OPTIONS_LUA;INTERFACE_FILE_COMPILE_OPTIONS_PYTHON" ${ARGN})
 
