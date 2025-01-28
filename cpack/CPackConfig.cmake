@@ -13,6 +13,8 @@
 #  - CU_INSTALL_NSIS_RUN_APP_WITH_SAME_PRIVILEGES_AS_INSTALLER -> If set to TRUE, run the main executable with the same privileges as the installer (defaults to FALSE, ie 'run as logged user')
 #  - CU_INSTALL_MAIN_EXECUTABLE_NAME -> Set to the name of the main executable to use (defaults to "${PROJECT_NAME}")
 #  - CU_INSTALL_PRODUCTBUILD_UNINSTALL_TYPE -> The type of uninstaller to embed: "NONE", "PKG" or "SCRIPT" (defaults to "PKG")
+#  - CU_INSTALL_KEY -> Set to the unique key to use for the installation, it will be used to detect previously installed version (defaults to "${PROJECT_NAME}")
+#  - CU_INSTALLER_NAME -> Set to the name of the installer file to use (defaults to "${PROJECT_NAME}_Installer_${CU_PROJECT_FRIENDLY_VERSION}")
 # Delegate macros called:
 #  - configure_NSIS_extra_commands()
 #  - configure_NSIS_extra_components()
