@@ -1734,15 +1734,22 @@ endfunction()
 
 ###############################################################################
 # Helper function to build the marketing version string based on input variables
+# Optional parameters:
+#  - OUTPUT_VAR_VERSION_SPLIT <output variable> => Will output the version split in a list
 function(cu_build_marketing_version OUTPUT_VAR PRJ_VERSION MARKETING_DIGITS MARKETING_POSTFIX)
+	# Parse arguments
+	cmake_parse_arguments(CBMV "" "OUTPUT_VAR_VERSION_SPLIT" "" ${ARGN})
+
 	# Split passed version
 	string(REGEX MATCHALL "([0-9]+)" VERSION_SPLIT "${PRJ_VERSION}")
 	list(LENGTH VERSION_SPLIT VERSION_SPLIT_LENGTH)
-	if(${VERSION_SPLIT_LENGTH} LESS 3)
-		message(FATAL_ERROR "Cannot parse version string")
-	endif()
-	if(NOT ${VERSION_SPLIT_LENGTH} EQUAL 4)
-		list(APPEND VERSION_SPLIT "0")
+	# Ensure VERSION_SPLIT always has 4 elements by adding 0s if missing
+	if(${VERSION_SPLIT_LENGTH} LESS 4)
+		math(EXPR LOOP_COUNT "4 - ${VERSION_SPLIT_LENGTH}")
+		foreach(index RANGE 1 ${LOOP_COUNT})
+			list(APPEND VERSION_SPLIT "0")
+		endforeach()
+		list(LENGTH VERSION_SPLIT VERSION_SPLIT_LENGTH)
 	endif()
 
 	# Compute Marketing Version String
@@ -1767,6 +1774,11 @@ function(cu_build_marketing_version OUTPUT_VAR PRJ_VERSION MARKETING_DIGITS MARK
 
 	# Return result to the caller
 	set(${OUTPUT_VAR} "${RESULT}" PARENT_SCOPE)
+
+	# Return version split if requested
+	if(CBMV_OUTPUT_VAR_VERSION_SPLIT)
+		set(${CBMV_OUTPUT_VAR_VERSION_SPLIT} "${VERSION_SPLIT}" PARENT_SCOPE)
+	endif()
 endfunction()
 
 ###############################################################################
@@ -1806,16 +1818,10 @@ macro(cu_setup_project PRJ_NAME PRJ_VERSION PRJ_DESC)
 	set(CU_PROJECT_PRODUCTDESCRIPTION ${PRJ_DESC}) # Immediately override the default product description
 
 	# Parse optional arguments
-	cmake_parse_arguments(CUSP "" "MARKETING_VERSION_DIGITS;MARKETING_VERSION_POSTFIX" "" ${ARGN})
+	cmake_parse_arguments(CUSP "" "MARKETING_VERSION_DIGITS;MARKETING_VERSION_POSTFIX;MARKETING_VERSION" "" ${ARGN})
 
-	if(CUSP_MARKETING_VERSION_DIGITS)
-		set(CU_PROJECT_MARKETING_VERSION_DIGITS ${CUSP_MARKETING_VERSION_DIGITS})
-	endif()
-	if(CUSP_MARKETING_VERSION_POSTFIX)
-		set(CU_PROJECT_MARKETING_VERSION_POSTFIX ${CUSP_MARKETING_VERSION_POSTFIX})
-	endif()
-
-	cu_setup_project_version_variables(${PRJ_VERSION})
+	# Forward the optional arguments
+	cu_setup_project_version_variables(${PRJ_VERSION} MARKETING_VERSION_DIGITS ${CUSP_MARKETING_VERSION_DIGITS} MARKETING_VERSION_POSTFIX ${CUSP_MARKETING_VERSION_POSTFIX} MARKETING_VERSION ${CUSP_MARKETING_VERSION})
 endmacro()
 
 ###############################################################################
@@ -1824,9 +1830,10 @@ endmacro()
 # Optional parameters:
 #  - "MARKETING_VERSION_DIGITS <digits count>" => Number of digits to use for the marketing version (defaults to 2)
 #  - "MARKETING_VERSION_POSTFIX <postfix name>" => Postfix string to add to the marketing version (Only alphanum, underscore, plus and minus are allowed)
+#  - "MARKETING_VERSION <version string>" => Use a custom version string for the marketing version. This version doesn't have the same restrictions as the PRJ_VERSION
 macro(cu_setup_project_version_variables PRJ_VERSION)
 	# Parse optional arguments
-	cmake_parse_arguments(CUSPVV "" "MARKETING_VERSION_DIGITS;MARKETING_VERSION_POSTFIX" "" ${ARGN})
+	cmake_parse_arguments(CUSPVV "" "MARKETING_VERSION_DIGITS;MARKETING_VERSION_POSTFIX;MARKETING_VERSION" "" ${ARGN})
 
 	if(CUSPVV_MARKETING_VERSION_DIGITS)
 		set(CU_PROJECT_MARKETING_VERSION_DIGITS ${CUSPVV_MARKETING_VERSION_DIGITS})
@@ -1895,6 +1902,14 @@ macro(cu_setup_project_version_variables PRJ_VERSION)
 	endif()
 	cu_build_marketing_version(CU_PROJECT_MARKETING_VERSION ${PRJ_VERSION} ${CU_PROJECT_MARKETING_VERSION_DIGITS} "${CU_PROJECT_MARKETING_VERSION_POSTFIX}")
 
+	# Compute user marketing version string
+	if(CUSPVV_MARKETING_VERSION)
+		cu_build_marketing_version(CU_PROJECT_USER_MARKETING_VERSION ${CUSPVV_MARKETING_VERSION} ${CU_PROJECT_MARKETING_VERSION_DIGITS} "${CU_PROJECT_MARKETING_VERSION_POSTFIX}" OUTPUT_VAR_VERSION_SPLIT CU_USER_MARKETING_VERSION_SPLIT)
+	else()
+		unset(CU_PROJECT_USER_MARKETING_VERSION)
+		unset(CU_USER_MARKETING_VERSION_SPLIT)
+	endif()
+
 	# Compute a build number based on version
 	set(BETA_NUMBER_DIGITS_COUNT 5)
 	math(EXPR CU_BUILD_NUMBER "${CU_PROJECT_VERSION_MAJOR} * 1000000 + ${CU_PROJECT_VERSION_MINOR} * 1000 + ${CU_PROJECT_VERSION_PATCH}")
@@ -1920,7 +1935,7 @@ endmacro()
 cu_private_detect_arch()
 
 # Print version message
-message(STATUS "CMake Macros v11.1")
+message(STATUS "CMake Macros v12.0")
 
 # Load and parse an optional cmake file, allowing overriding variables and other things before really processing the main CMakeLists.txt file
 include("local_definitions.cmake" OPTIONAL)

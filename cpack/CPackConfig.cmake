@@ -226,22 +226,35 @@ endif()
 
 # Compute Install Version in the form 0xXXYYZZWW
 math(EXPR CU_PROJECT_INSTALL_VERSION "0" OUTPUT_FORMAT HEXADECIMAL)
-# Start with the first 3 digits
-foreach(index RANGE 0 2)
-	list(GET CU_PROJECT_VERSION_SPLIT ${index} LOOP_VERSION)
-	if(LOOP_VERSION GREATER 255)
-		message(FATAL_ERROR "Version number ${LOOP_VERSION} is too large (max 255)")
+if(CU_USER_MARKETING_VERSION_SPLIT)
+	# All digits should be set (4 digits) when using CU_USER_MARKETING_VERSION_SPLIT
+	list(LENGTH CU_USER_MARKETING_VERSION_SPLIT CU_USER_MARKETING_VERSION_SPLIT_LENGTH)
+	if(CU_USER_MARKETING_VERSION_SPLIT_LENGTH LESS 4)
+		message(FATAL_ERROR "CU_USER_MARKETING_VERSION_SPLIT must have 4 digits (has ${CU_USER_MARKETING_VERSION_SPLIT_LENGTH})")
 	endif()
-	math(EXPR CU_PROJECT_INSTALL_VERSION "${CU_PROJECT_INSTALL_VERSION} + (${LOOP_VERSION} << (8 * (3 - ${index})))" OUTPUT_FORMAT HEXADECIMAL)
-endforeach()
-# If the last digit is 0 (meaning release version), force it to greatest possible value
-if(${CU_PROJECT_VERSION_BETA} STREQUAL "0")
-	math(EXPR CU_PROJECT_INSTALL_VERSION "${CU_PROJECT_INSTALL_VERSION} + 0xFF" OUTPUT_FORMAT HEXADECIMAL)
+	# Pack each digit, but truncate each of them to 255
+	foreach(index RANGE 0 3)
+		list(GET CU_USER_MARKETING_VERSION_SPLIT ${index} LOOP_VERSION)
+		math(EXPR CU_PROJECT_INSTALL_VERSION "${CU_PROJECT_INSTALL_VERSION} + ((${LOOP_VERSION} & 0xFF) << (8 * (3 - ${index})))" OUTPUT_FORMAT HEXADECIMAL)
+	endforeach()
 else()
-	if(CU_PROJECT_VERSION_BETA GREATER 255)
-		message(FATAL_ERROR "Version number ${CU_PROJECT_VERSION_BETA} is too large (max 255)")
+	# Start with the first 3 digits
+	foreach(index RANGE 0 2)
+		list(GET CU_PROJECT_VERSION_SPLIT ${index} LOOP_VERSION)
+		if(LOOP_VERSION GREATER 255)
+			message(FATAL_ERROR "Version number ${LOOP_VERSION} is too large (max 255)")
+		endif()
+		math(EXPR CU_PROJECT_INSTALL_VERSION "${CU_PROJECT_INSTALL_VERSION} + (${LOOP_VERSION} << (8 * (3 - ${index})))" OUTPUT_FORMAT HEXADECIMAL)
+	endforeach()
+	# If the last digit is 0 (meaning release version), force it to greatest possible value
+	if(${CU_PROJECT_VERSION_BETA} STREQUAL "0")
+		math(EXPR CU_PROJECT_INSTALL_VERSION "${CU_PROJECT_INSTALL_VERSION} + 0xFF" OUTPUT_FORMAT HEXADECIMAL)
+	else()
+		if(CU_PROJECT_VERSION_BETA GREATER 255)
+			message(FATAL_ERROR "Version number ${CU_PROJECT_VERSION_BETA} is too large (max 255)")
+		endif()
+		math(EXPR CU_PROJECT_INSTALL_VERSION "${CU_PROJECT_INSTALL_VERSION} + ${CU_PROJECT_VERSION_BETA}" OUTPUT_FORMAT HEXADECIMAL)
 	endif()
-	math(EXPR CU_PROJECT_INSTALL_VERSION "${CU_PROJECT_INSTALL_VERSION} + ${CU_PROJECT_VERSION_BETA}" OUTPUT_FORMAT HEXADECIMAL)
 endif()
 
 # Basic settings
