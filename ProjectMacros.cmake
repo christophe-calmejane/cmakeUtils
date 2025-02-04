@@ -1822,6 +1822,7 @@ endmacro()
 # Optional parameters:
 #  - "MARKETING_VERSION_DIGITS <digits count>" => Number of digits to use for the marketing version (defaults to 2)
 #  - "MARKETING_VERSION_POSTFIX <postfix name>" => Postfix string to add to the marketing version (Only alphanum, underscore, plus and minus are allowed)
+#  - "MARKETING_VERSION <version string>" => Use a custom version string for the marketing version. This version doesn't have the same restrictions as the PRJ_VERSION
 macro(cu_setup_project PRJ_NAME PRJ_VERSION PRJ_DESC)
 	message(STATUS "Defining project ${PRJ_NAME}")
 	project(${PRJ_NAME} LANGUAGES C CXX VERSION ${PRJ_VERSION})
