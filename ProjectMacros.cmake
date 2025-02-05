@@ -634,6 +634,16 @@ endfunction()
 ###############################################################################
 # Setup symbols for a target.
 function(cu_setup_symbols TARGET_NAME)
+	# Temporary workaround for Ninja always rebuilding the target when using POST_BUILD commands (https://gitlab.kitware.com/cmake/cmake/-/issues/26585)
+	# Disable symbols when using Ninja on a SHARED_LIBRARY target for a Debug build
+	if("${CMAKE_GENERATOR}" STREQUAL "Ninja" AND "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+		get_target_property(targetType ${TARGET_NAME} TYPE)
+		if(${targetType} STREQUAL "SHARED_LIBRARY")
+			message(WARNING "Disabling symbols for ${TARGET_NAME} in Debug build with Ninja generator")
+			return()
+		endif()
+	endif()
+
 	cmake_parse_arguments(CUSS "NO_COPY_DEBUG_SYMBOLS" "" "" ${ARGN})
 
 	# Force symbols file generation
