@@ -1746,12 +1746,17 @@ endfunction()
 # Helper function to build the marketing version string based on input variables
 # Optional parameters:
 #  - OUTPUT_VAR_VERSION_SPLIT <output variable> => Will output the version split in a list
+#  - OVERRIDE_VERSION <version string> => Use a custom version string instead of PRJ_VERSION. This version doesn't have the same restrictions as the PRJ_VERSION
 function(cu_build_marketing_version OUTPUT_VAR PRJ_VERSION MARKETING_DIGITS MARKETING_POSTFIX)
 	# Parse arguments
-	cmake_parse_arguments(CBMV "" "OUTPUT_VAR_VERSION_SPLIT" "" ${ARGN})
+	cmake_parse_arguments(CBMV "" "OUTPUT_VAR_VERSION_SPLIT;OVERRIDE_VERSION" "" ${ARGN})
 
+	set(VERSION "${PRJ_VERSION}")
+	if(CBMV_OVERRIDE_VERSION)
+		set(VERSION "${CBMV_OVERRIDE_VERSION}")
+	endif()
 	# Split passed version
-	string(REGEX MATCHALL "([0-9]+)" VERSION_SPLIT "${PRJ_VERSION}")
+	string(REGEX MATCHALL "([0-9]+)" VERSION_SPLIT "${VERSION}")
 	list(LENGTH VERSION_SPLIT VERSION_SPLIT_LENGTH)
 	# Ensure VERSION_SPLIT always has 4 elements by adding 0s if missing
 	if(${VERSION_SPLIT_LENGTH} LESS 4)
