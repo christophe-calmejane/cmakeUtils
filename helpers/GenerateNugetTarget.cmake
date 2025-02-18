@@ -213,7 +213,7 @@ function(cu_generate_csharp_nuget_target)
 	# Add a custom target to push the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-push
-		COMMAND dotnet nuget push -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${PACKAGE_NAME}.${PACKAGE_VERSION}.nupkg" --skip-duplicate
+		COMMAND dotnet nuget push --interactive -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${PACKAGE_NAME}.${PACKAGE_VERSION}.nupkg" --skip-duplicate
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS ${CUGCSNT_TARGET_NAME}-nuget-pack
 	)
