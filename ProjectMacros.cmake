@@ -404,7 +404,7 @@ function(cu_set_target_system_definition TARGET_NAME)
 	elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
 		set(TARGET_SYSTEM_NAME "TARGET_SYSTEM_ANDROID")
 	else()
-		message(FATAL_ERROR "Unkown CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+		message(FATAL_ERROR "Unknown CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 	endif()
 
 	target_compile_definitions(${TARGET_NAME} PRIVATE ${TARGET_SYSTEM_NAME})
