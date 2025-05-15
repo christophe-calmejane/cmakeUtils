@@ -9,7 +9,72 @@ set(CU_GENERATE_CSHARP_TARGET_INCLUDED true)
 
 set(CU_GENERATE_CSHARP_TARGET_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 
-########
+##################################
+# Internal function
+function(cu_private_get_target_soname_file_name_generator_expression TARGET_NAME)
+	set(CS_TARGET_FILE_NAME "")
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		# On windows, use TARGET_FILE_NAME
+		set(CS_TARGET_FILE_NAME "$<TARGET_FILE_NAME:${TARGET_NAME}>")
+	else()
+		# For non-windows targets that use SONAME, we want to use the soname file (which is a symbolink link to the LINKER file, but it will be copied by following the link)
+		set(CS_TARGET_FILE_NAME "$<TARGET_SONAME_FILE_NAME:${TARGET_NAME}>")
+		# If someday csproj files support copying symbolink links, we'll have to copy the 3 files (without following the links): TARGET_FILE_NAME, TARGET_LINKER_FILE_NAME and TARGET_SONAME_FILE_NAME
+	endif()
+	# Return the CS_TARGET_FILE_NAME to the caller
+	set(CS_TARGET_FILE_NAME "${CS_TARGET_FILE_NAME}" PARENT_SCOPE)
+endfunction()
+
+##################################
+# Internal function
+function(cu_private_get_target_file_name_generator_expression TARGET_NAME)
+	set(CS_TARGET_FILE_NAME "")
+	if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+		# On windows, use TARGET_FILE_NAME
+		set(CS_TARGET_FILE_NAME "$<TARGET_FILE_NAME:${TARGET_NAME}>")
+	else()
+		# For non-windows targets that use SONAME, we want to use the linker file (which is a symbolink link to the SONAME file, but it will be copied by following the link)
+		set(CS_TARGET_FILE_NAME "$<TARGET_LINKER_FILE_NAME:${TARGET_NAME}>")
+		# If someday csproj files support copying symbolink links, we'll have to copy the 3 files (without following the links): TARGET_FILE_NAME, TARGET_LINKER_FILE_NAME and TARGET_SONAME_FILE_NAME
+	endif()
+	# Return the CS_TARGET_FILE_NAME to the caller
+	set(CS_TARGET_FILE_NAME "${CS_TARGET_FILE_NAME}" PARENT_SCOPE)
+endfunction()
+
+##################################
+# Add a C# target dependency to CU_CSHARP_ADDITIONAL_COMPILE_ITEMS and CU_CSHARP_ADDITIONAL_CONTENT_ITEMS variables
+# Mandatory parameters:
+#  - "TARGET_NAME <target name>" => Name of the C# target
+function(cu_generate_csharp_target_add_csharp_dependency TARGET_NAME)
+	# Check TARGET_NAME exists
+	if(NOT TARGET ${TARGET_NAME})
+		message(FATAL_ERROR "Target ${TARGET_NAME} does not exist")
+	endif()
+
+	cu_private_get_target_file_name_generator_expression("${TARGET_NAME}")
+	string(APPEND CU_CSHARP_ADDITIONAL_COMPILE_ITEMS "      <Compile Include=\"$<TARGET_FILE_DIR:${TARGET_NAME}>/SWIG_${TARGET_NAME}/csharp.files/**/*.cs\" />\n")
+	string(APPEND CU_CSHARP_ADDITIONAL_CONTENT_ITEMS "      <Content Include=\"$<TARGET_FILE:${TARGET_NAME}>\" Link=\"${CS_TARGET_FILE_NAME}\"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>\n")
+
+	set(VISITED_DEPENDENCIES)
+	cu_private_target_list_link_libraries("${TARGET_NAME}" "${TARGET_NAME}" _LIBRARY_DEPENDENCIES_OUTPUT _QT_DEPENDENCIES_OUTPUT)
+	if(_LIBRARY_DEPENDENCIES_OUTPUT)
+		list(REMOVE_DUPLICATES _LIBRARY_DEPENDENCIES_OUTPUT)
+		foreach(_LIBRARY ${_LIBRARY_DEPENDENCIES_OUTPUT})
+			# Check if the library is a target
+			if(TARGET ${_LIBRARY})
+			cu_private_get_target_soname_file_name_generator_expression("${_LIBRARY}")
+				string(APPEND CU_CSHARP_ADDITIONAL_CONTENT_ITEMS "      <Content Include=\"$<TARGET_FILE:${_LIBRARY}>\" Link=\"${CS_TARGET_FILE_NAME}\"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>\n")
+			endif()
+		endforeach()
+	endif()
+	string(APPEND CU_CSHARP_ADDITIONAL_CONTENT_ITEMS "\n")
+
+	# Return CU_CSHARP_ADDITIONAL_COMPILE_ITEMS and CU_CSHARP_ADDITIONAL_CONTENT_ITEMS to the caller
+	set(CU_CSHARP_ADDITIONAL_COMPILE_ITEMS "${CU_CSHARP_ADDITIONAL_COMPILE_ITEMS}" PARENT_SCOPE)
+	set(CU_CSHARP_ADDITIONAL_CONTENT_ITEMS "${CU_CSHARP_ADDITIONAL_CONTENT_ITEMS}" PARENT_SCOPE)
+endfunction()
+
+##################################
 # Generate C# target
 # Mandatory parameters:
 #  - "TARGET_NAME <target name>" => Name of the target. A custom target named "<TARGET_NAME>-csharp" will be created to build the project but the binary will be named "<TARGET_NAME>"
