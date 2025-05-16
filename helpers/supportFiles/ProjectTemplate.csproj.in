@@ -1,14 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <WarningLevel>3</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <OutputType>Exe</OutputType>
     <TargetFramework>${CU_DOTNET_FRAMEWORK_VERSION}</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PlatformTarget>${CU_ARCH}</PlatformTarget>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>${CU_DOTNET_RUNTIME}</RuntimeIdentifier>
+    <PlatformTarget>${CU_DOTNET_PLATFORM_TARGET}</PlatformTarget>
+    <RuntimeIdentifier>${CU_DOTNET_RID_APP}</RuntimeIdentifier>
   </PropertyGroup>
 
    <ItemGroup>

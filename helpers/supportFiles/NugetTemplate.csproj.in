@@ -11,7 +11,7 @@
     <Title>@PACKAGE_NAME@</Title>
     <AssemblyName>@PACKAGE_NAME@</AssemblyName>
     <EnableDefaultItems>false</EnableDefaultItems>
-    <RuntimeIdentifier>@CU_DOTNET_RUNTIME@</RuntimeIdentifier>
+    <RuntimeIdentifier>@CU_DOTNET_RID_NUGET@</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>

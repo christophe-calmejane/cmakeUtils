@@ -61,7 +61,9 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(CU_TARGET_ARCH "64")
 endif()
 set(CU_ARCH "UNKNOWN") # New variable to replace CU_TARGET_ARCH (will be computed later in the file)
-set(CU_DOTNET_RUNTIME "UNKNOWN") # (will be computed later in the file)
+set(CU_DOTNET_PLATFORM_TARGET "") # csproj "PlatformTarget" used for C# application projects (will be computed later in the file)
+set(CU_DOTNET_RID_APP "") # csproj "RuntimeIdentifier" used for C# application projects, which must be an exact RID entry (will be computed later in the file)
+set(CU_DOTNET_RID_NUGET "") # csproj "RuntimeIdentifier" used for C# NuGets, which can use RID Graph (will be computed later in the file)
 
 if(NOT DEFINED PROJECT_NAME)
 	message(FATAL_ERROR "project() must be called before including ProjectMacros.cmake")
@@ -105,9 +107,12 @@ function(cu_private_detect_arch)
 		else()
 			set(CU_ARCH "x86")
 		endif()
-		set(CU_DOTNET_RUNTIME "win-${CU_ARCH}")
+		set(CU_DOTNET_PLATFORM_TARGET "${CU_ARCH}")
+		set(CU_DOTNET_RID_APP "win-${CU_ARCH}")
+		set(CU_DOTNET_RID_NUGET "win-${CU_ARCH}") # To be changed to "win" if we support multi-arch someday
 
 	elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+		list(LENGTH CMAKE_OSX_ARCHITECTURES COUNT_ARCHS)
 		# Extract the first architecture from CMAKE_OSX_ARCHITECTURES
 		list(GET CMAKE_OSX_ARCHITECTURES 0 _OSX_ARCH)
 		if(_OSX_ARCH STREQUAL "x86_64")
@@ -122,9 +127,19 @@ function(cu_private_detect_arch)
 			message(FATAL_ERROR "Unsupported CMAKE_OSX_ARCHITECTURES: ${_OSX_ARCH}")
 		endif()
 		if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-			set(CU_DOTNET_RUNTIME "osx-${CU_ARCH}")
+			set(OS_NAME "osx")
 		else()
-			set(CU_DOTNET_RUNTIME "ios-${CU_ARCH}") # Not sure about this on
+			set(OS_NAME "ios") # Should actually be 'iossimulator' instead of 'ios' for iOS simulator
+		endif()
+		# If we build for multi-arch
+		if(COUNT_ARCHS GREATER 1)
+			set(CU_DOTNET_PLATFORM_TARGET "AnyCPU")
+			set(CU_DOTNET_RID_APP "") # Not specifying a RID for multi-arch seems to be the best option, we let the runtime choose the best one (can still be overridden from the dotnet command line)
+			set(CU_DOTNET_RID_NUGET "${OS_NAME}") # We should use the RID graph for this one, targetting all architectures for that OS
+		else()
+			set(CU_DOTNET_PLATFORM_TARGET "${CU_ARCH}")
+			set(CU_DOTNET_RID_APP "${OS_NAME}-${CU_ARCH}") # Specifying the exact RID for the application
+			set(CU_DOTNET_RID_NUGET "${OS_NAME}-${CU_ARCH}") # Specifying the exact RID for the NuGet
 		endif()
 
 	elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -138,7 +153,9 @@ function(cu_private_detect_arch)
 		else()
 			message(FATAL_ERROR "Unsupported CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 		endif()
-		set(CU_DOTNET_RUNTIME "linux-${CU_ARCH}")
+		set(CU_DOTNET_PLATFORM_TARGET "${CU_ARCH}")
+		set(CU_DOTNET_RID_APP "linux-${CU_ARCH}")
+		set(CU_DOTNET_RID_NUGET "linux-${CU_ARCH}") # To be changed to "linux" if we support multi-arch someday
 
 	elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
 		# Extract the first architecture from ANDROID_ABI
@@ -150,7 +167,9 @@ function(cu_private_detect_arch)
 		else()
 			message(FATAL_ERROR "Unsupported ANDROID_ABI: ${_ANDROID_ARCH}")
 		endif()
-		set(CU_DOTNET_RUNTIME "android-${CU_ARCH}") # Not sure about this one
+		set(CU_DOTNET_PLATFORM_TARGET "${CU_ARCH}")
+		set(CU_DOTNET_RID_APP "android-${CU_ARCH}")
+		set(CU_DOTNET_RID_NUGET "android-${CU_ARCH}") # To be changed to "android" if we support multi-arch someday
 
 	else()
 		message(FATAL_ERROR "Unsupported CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
@@ -160,7 +179,7 @@ function(cu_private_detect_arch)
 	cmake_minimum_required(VERSION 3.25) # return(PROPAGATE) added in cmake 3.25
 	cmake_policy(SET CMP0140 NEW)
 
-	return(PROPAGATE CU_ARCH CU_DOTNET_RUNTIME)
+	return(PROPAGATE CU_ARCH CU_DOTNET_PLATFORM_TARGET CU_DOTNET_RID_APP CU_DOTNET_RID_NUGET)
 endfunction()
 
 #

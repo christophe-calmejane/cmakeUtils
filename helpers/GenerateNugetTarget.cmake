@@ -133,7 +133,7 @@ function(cu_generate_csharp_nuget_target)
 		"include(\"${CU_GENERATE_CSHARP_NUGET_TARGET_FOLDER}/DeployBinaryDependencies.cmake\")\n"
 		"\n"
 		"macro(add_runtime_content_item ITEM_PATH OUTPUT_STRING)\n"
-		"\tstring(APPEND \${OUTPUT_STRING} \"    <Content Include=\\\"\${ITEM_PATH}\\\">\\n      <Pack>true</Pack>\\n      <PackagePath>runtimes/${CU_DOTNET_RUNTIME}/native</PackagePath>\\n    </Content>\\n\")\n"
+		"\tstring(APPEND \${OUTPUT_STRING} \"    <Content Include=\\\"\${ITEM_PATH}\\\">\\n      <Pack>true</Pack>\\n      <PackagePath>runtimes/${CU_DOTNET_RID_NUGET}/native</PackagePath>\\n    </Content>\\n\")\n"
 		"endmacro()\n"
 		"\n"
 	)
