@@ -12,6 +12,7 @@
     <AssemblyName>@PACKAGE_NAME@</AssemblyName>
     <EnableDefaultItems>false</EnableDefaultItems>
     <RuntimeIdentifier>@CU_DOTNET_RID_NUGET@</RuntimeIdentifier>
+    <RepositoryUrl>@CU_REPO_URL@</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
