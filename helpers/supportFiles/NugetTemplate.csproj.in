@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk" DefaultTargets="Pack">
   <PropertyGroup>
     <TargetFramework>@CU_DOTNET_FRAMEWORK_VERSION@</TargetFramework>
-    <PackageId>@PACKAGE_NAME@</PackageId>
+    <PackageId>@PACKAGE_ID@</PackageId>
     <Version>@PACKAGE_VERSION@</Version>
     <Authors>@CU_COPYRIGHT_HOLDER@</Authors>
     <Company>@CU_COPYRIGHT_HOLDER@</Company>

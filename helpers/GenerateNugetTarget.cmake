@@ -77,6 +77,12 @@ function(cu_generate_csharp_nuget_target)
 		message(FATAL_ERROR "Specified csproj template file does not exist: ${CSPROJ_TEMPLATE_PATH}")
 	endif()
 
+	# Build the PACKAGE_ID variable based on PACKAGE_NAME and CU_DOTNET_RID_NUGET
+	set(PACKAGE_ID "${PACKAGE_NAME}-${CU_DOTNET_RID_NUGET}")
+
+	# Nuget package name
+	set(NUGET_PACKAGE_NAME "${PACKAGE_ID}.${PACKAGE_VERSION}.nupkg")
+
 	# Generate the list of source folders to compile
 	set(CSPROJ_COMPILE_ITEMS "")
 	foreach(CS_SOURCE_FOLDER ${CUGCSNT_CS_SOURCE_FOLDERS})
@@ -206,14 +212,14 @@ function(cu_generate_csharp_nuget_target)
 		${CUGCSNT_TARGET_NAME}-nuget-pack
 		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c ${CONFIGURATION}
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-		BYPRODUCTS "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${PACKAGE_NAME}.${PACKAGE_VERSION}.nupkg"
+		BYPRODUCTS "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${NUGET_PACKAGE_NAME}"
 		DEPENDS ${NUGET_PACK_TARGET_DEPENDENCIES}
 	)
 
 	# Add a custom target to push the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-push
-		COMMAND dotnet nuget push --interactive -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${PACKAGE_NAME}.${PACKAGE_VERSION}.nupkg" --skip-duplicate
+		COMMAND dotnet nuget push --interactive -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${NUGET_PACKAGE_NAME}" --skip-duplicate
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS ${CUGCSNT_TARGET_NAME}-nuget-pack
 	)
