@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <WarningLevel>3</WarningLevel>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>${CSPROJ_TREAT_WARNINGS_AS_ERRORS}</TreatWarningsAsErrors>
     <OutputType>Exe</OutputType>
     <TargetFramework>${CU_DOTNET_FRAMEWORK_VERSION}</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

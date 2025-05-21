@@ -83,8 +83,9 @@ endfunction()
 #  - "CSPROJ_FILE_NAME <csproj file name>" => Name of the csproj file to generate (default: TARGET_NAME)
 #  - "SLN_FILE_NAME <sln file name>" => Name of the sln file to generate (default: TARGET_NAME)
 #  - "ADDITIONAL_DEPENDENCIES <list of additional dependencies>" => List of additional dependencies to add to the custom target
+#  - "NO_WARNING_AS_ERROR" => Do not add the 'TreatWarningsAsErrors' property to the csproj file (Default: add it)
 function(cu_generate_csharp_target)
-	cmake_parse_arguments(CUGCST "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;SLN_FILE_NAME" "ADDITIONAL_DEPENDENCIES" ${ARGN})
+	cmake_parse_arguments(CUGCST "NO_WARNING_AS_ERROR" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;SLN_FILE_NAME" "ADDITIONAL_DEPENDENCIES" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUGCST_TARGET_NAME)
@@ -95,6 +96,7 @@ function(cu_generate_csharp_target)
 	set(CSPROJ_FILE_NAME ${CUGCST_TARGET_NAME})
 	set(SLN_FILE_NAME ${CUGCST_TARGET_NAME})
 	set(CSPROJ_TEMPLATE_PATH "${CU_GENERATE_CSHARP_TARGET_FOLDER}/supportFiles/ProjectTemplate.csproj.in")
+	set(CSPROJ_TREAT_WARNINGS_AS_ERRORS "true")
 
 	# Override default values
 	if(CUGCST_CSPROJ_FILE_NAME)
@@ -105,6 +107,9 @@ function(cu_generate_csharp_target)
 	endif()
 	if(CUGCST_CSPROJ_TEMPLATE_PATH)
 		set(CSPROJ_TEMPLATE_PATH ${CUGCST_CSPROJ_TEMPLATE_PATH})
+	endif()
+	if(CUGCST_NO_WARNING_AS_ERROR)
+		set(CSPROJ_TREAT_WARNINGS_AS_ERRORS "false")
 	endif()
 	# Check if the template file exists
 	if(NOT EXISTS ${CSPROJ_TEMPLATE_PATH})
