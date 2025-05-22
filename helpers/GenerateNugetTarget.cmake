@@ -208,18 +208,19 @@ function(cu_generate_csharp_nuget_target)
 	endforeach()
 
 	# Add a custom target to pack the nuget
+	set(CS_NUPKG_OUTPUT_FOLDER "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}")
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-pack
-		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c ${CONFIGURATION}
+		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c ${CONFIGURATION} -o "${CS_NUPKG_OUTPUT_FOLDER}"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-		BYPRODUCTS "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${NUGET_PACKAGE_NAME}"
+		BYPRODUCTS "${CS_NUPKG_OUTPUT_FOLDER}/${NUGET_PACKAGE_NAME}"
 		DEPENDS ${NUGET_PACK_TARGET_DEPENDENCIES}
 	)
 
 	# Add a custom target to push the nuget
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-push
-		COMMAND dotnet nuget push --interactive -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}/${NUGET_PACKAGE_NAME}" --skip-duplicate
+		COMMAND dotnet nuget push --interactive -s ${NUGET_SOURCE_URL} ${NUGET_API_KEY} "${CS_NUPKG_OUTPUT_FOLDER}/${NUGET_PACKAGE_NAME}" --skip-duplicate
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS ${CUGCSNT_TARGET_NAME}-nuget-pack
 	)
