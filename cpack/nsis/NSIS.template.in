@@ -758,10 +758,12 @@ Function ReadCustomOptionalParameters
 	ClearErrors
 
 	; Read /NOPCAP option
+!ifdef WinPcap
 	${GetOptions} $R0 /NOPCAP $0
 	IfErrors defaultPcap
 		!insertmacro UnselectSection ${WinPcap}
 	defaultPcap:
+!endif
 
 	; Read /LAUNCH option
 	StrCpy $ShouldLaunch 0
