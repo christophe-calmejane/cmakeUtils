@@ -1,0 +1,76 @@
+-- CPack uses this script to generate the .DS_Store file in the mounted DMG
+
+on run argv
+	-- Get the volume name from the first argument passed by CPack
+	set volumeName to item 1 of argv
+
+	-- Names of the items in the DMG
+	set appName to "@MACOS_INSTALL_FOLDER@"
+	set backgroundImage to "@CU_INSTALL_DND_BACKGROUND_FILE_NAME@"
+	set appIconPosition to @CU_INSTALL_DND_APP_ICON_POSITION@
+	set shortcutIconPosition to @CU_INSTALL_DND_SHORTCUT_ICON_POSITION@
+	set iconSpacing to 128 -- Adjust as needed
+	set iconSize to 128 -- Adjust as needed
+	set textSize to 14 -- Adjust as needed
+
+	tell application "Finder"
+		-- Set disk to the mounted volume
+		tell disk volumeName
+			-- Wait for the disk to be ready (sort of 'priming' the DMG for Finder)
+			set retries to 0
+			repeat while retries < 10
+				try
+					open
+					-- Give Finder some time to open the disk
+					delay 1
+					-- Close the disk now so Finder can set up the .DS_Store
+					close
+					delay 1
+					-- Exit the loop if successful
+					exit repeat
+				on error errMessage number errCode
+					set retries to retries + 1
+					-- If an error occurs, wait a bit and try again
+					delay 2
+				end try
+			end repeat
+
+			try
+				-- Open the disk volume to set up the .DS_Store
+				open
+
+				-- Delay again to ensure the disk is ready
+				delay 1
+
+				-- Set view mode to icon view
+				set current view of container window to icon view
+
+				-- Configure icon view options
+				set iconViewOptions to the icon view options of container window
+				set arrangement of iconViewOptions to not arranged
+				set icon size of iconViewOptions to iconSize
+				set text size of iconViewOptions to textSize
+				set backgroundFilePath to ".background:" & backgroundImage
+				set backgroundFile to file backgroundFilePath
+				set background picture of iconViewOptions to backgroundFile
+
+				tell container window
+					-- Position the app icon on the left
+					set position of item appName to appIconPosition
+
+					-- Position the Applications alias on the right
+					set position of item "Applications" to shortcutIconPosition
+				end tell -- End of container window tell block
+
+				-- Close to force Finder to write the .DS_Store
+				close
+				delay 1
+
+			on error errMessage number errCode
+				log "Error: " & errMessage & " (code: " & errCode & ")"
+				-- Return error to CPack
+				return -1
+			end try
+		end tell -- End of disk tell block
+	end tell -- End of Finder tell block
+end run

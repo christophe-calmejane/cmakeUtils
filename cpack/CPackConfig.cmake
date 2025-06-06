@@ -6,6 +6,9 @@
 #  - CU_INSTALL_ICO_FILE_PATH -> Set to the path of the windows ico file to use
 #  - CU_INSTALL_NSIS_WELCOME_FILE_PATH -> Set to the path of the NSIS welcome image to use
 #  - CU_INSTALL_PRODUCTBUILD_BACKGROUND_FILE_PATH -> Set to the path of the PRODUCTBUILD background image to use (might be relative if CPACK_PRODUCTBUILD_RESOURCES_DIR is used)
+#  - CU_INSTALL_DND_BACKGROUND_FILE_NAME -> Set to the name of the DragNDrop background image to use
+#  - CU_INSTALL_DND_APP_ICON_POSITION -> Set to the position of the app icon in the DragNDrop installer
+#  - CU_INSTALL_DND_SHORTCUT_ICON_POSITION -> Set to the position of the /Applications shortcut icon in the DragNDrop installer
 # Optional:
 #  - USE_IFW_GENERATOR -> Use IFW os-independent installer for all platforms
 #  - USE_DRAGDROP_GENERATOR -> Use d&d on macOS instead of ProductBuild
@@ -468,13 +471,21 @@ else()
 
 		else()
 
-			find_file(CPACK_PACKAGE_ICON VolumeIcon.icns PATHS dragndrop NO_DEFAULT_PATH)
 			set(CPACK_GENERATOR DragNDrop)
 			set(CPACK_DMG_FORMAT UDBZ)
-			find_file(CPACK_DMG_DS_STORE DS_Store PATHS dragndrop NO_DEFAULT_PATH)
+
+			find_file(CPACK_DMG_BACKGROUND_IMAGE ${CU_INSTALL_DND_BACKGROUND_FILE_NAME} PATHS dragndrop NO_DEFAULT_PATH)
 
 			# Add extra commands
 			configure_DragNDrop_extra_commands()
+
+			# Configure file with custom definitions for DragNDrop.
+			configure_file(
+				"${CU_CPACK_FOLDER}/dragndrop/GenerateDS_Store.scpt.in"
+				"${CU_TOP_LEVEL_BINARY_DIR}/GenerateDS_Store.scpt"
+				 @ONLY
+			)
+			set(CPACK_DMG_DS_STORE_SETUP_SCRIPT "${CU_TOP_LEVEL_BINARY_DIR}/GenerateDS_Store.scpt")
 
 			include(CPack REQUIRED)
 
