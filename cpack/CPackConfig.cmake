@@ -11,6 +11,7 @@
 #  - CU_INSTALL_DND_SHORTCUT_ICON_POSITION -> Set to the position of the /Applications shortcut icon in the DragNDrop installer
 # Optional:
 #  - USE_IFW_GENERATOR -> Use IFW os-independent installer for all platforms
+#  - USE_ZIP_GENERATOR -> Use ZIP generator for all platforms
 #  - USE_DRAGDROP_GENERATOR -> Use d&d on macOS instead of ProductBuild
 #  - CU_INSTALL_NSIS_HEADER_FILE_PATH -> Set to the path of the NSIS header image to use (Must be 150x57)
 #  - CU_INSTALL_NSIS_RUN_APP_WITH_SAME_PRIVILEGES_AS_INSTALLER -> If set to TRUE, run the main executable with the same privileges as the installer (defaults to FALSE, ie 'run as logged user')
@@ -273,7 +274,12 @@ set(CPACK_PACKAGE_EXECUTABLES "${PROJECT_NAME};${CU_NAME_AND_VERSION}")
 set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "${PACKAGE_INSTALL_KEY}")
 set(CPACK_CREATE_DESKTOP_LINKS "${PROJECT_NAME}")
 
-if(USE_IFW_GENERATOR)
+if(USE_ZIP_GENERATOR)
+
+	set(CPACK_GENERATOR ZIP)
+	include(CPack REQUIRED)
+
+elseif(USE_IFW_GENERATOR)
 
 	configure_ifw_installer()
 
