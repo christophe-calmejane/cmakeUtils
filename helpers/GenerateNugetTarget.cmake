@@ -100,6 +100,8 @@ function(cu_generate_csharp_nuget_target)
 		endif()
 		list(GET CS_DEPENDENCY_LIST 0 CS_DEPENDENCY_NAME)
 		list(GET CS_DEPENDENCY_LIST 1 CS_DEPENDENCY_VERSION)
+		# Append CU_DOTNET_RID_NUGET to the dependency name
+		string(APPEND CS_DEPENDENCY_NAME "-${CU_DOTNET_RID_NUGET}")
 		string(APPEND CSPROJ_REFERENCE_ITEMS "    <PackageReference Include=\"${CS_DEPENDENCY_NAME}\" Version=\"${CS_DEPENDENCY_VERSION}\" />\n")
 	endforeach()
 
