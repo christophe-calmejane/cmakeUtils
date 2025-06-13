@@ -78,10 +78,10 @@ function(cu_generate_csharp_nuget_target)
 	endif()
 
 	# Build the PACKAGE_ID variable based on PACKAGE_NAME and CU_DOTNET_RID_NUGET
-	set(PACKAGE_ID "${PACKAGE_NAME}-${CU_DOTNET_RID_NUGET}")
+	set(PACKAGE_ID "${PACKAGE_NAME}$<$<CONFIG:Debug>:-debug>-${CU_DOTNET_RID_NUGET}")
 
 	# Nuget package name
-	set(NUGET_PACKAGE_NAME "${PACKAGE_ID}.${PACKAGE_VERSION}.nupkg")
+	set(NUGET_PACKAGE_NAME "${PACKAGE_NAME}.${PACKAGE_VERSION}.nupkg")
 
 	# Generate the list of source folders to compile
 	set(CSPROJ_COMPILE_ITEMS "")
@@ -89,22 +89,6 @@ function(cu_generate_csharp_nuget_target)
 		string(APPEND CSPROJ_COMPILE_ITEMS "    <Compile Include=\"${CS_SOURCE_FOLDER}/**/*.cs\" />\n")
 	endforeach()
 	
-	# Generate the list of reference items
-	set(CSPROJ_REFERENCE_ITEMS "")
-	foreach(CS_DEPENDENCY ${CUGCSNT_CS_PACKAGE_DEPENDENCIES})
-		string(REPLACE ":" ";" CS_DEPENDENCY_LIST ${CS_DEPENDENCY})
-		# Check list size is 2
-		list(LENGTH CS_DEPENDENCY_LIST CS_DEPENDENCY_LIST_SIZE)
-		if(NOT CS_DEPENDENCY_LIST_SIZE EQUAL 2)
-			message(FATAL_ERROR "Invalid dependency format (Expected: <PackageName>:<Version>): '${CS_DEPENDENCY}'")
-		endif()
-		list(GET CS_DEPENDENCY_LIST 0 CS_DEPENDENCY_NAME)
-		list(GET CS_DEPENDENCY_LIST 1 CS_DEPENDENCY_VERSION)
-		# Append CU_DOTNET_RID_NUGET to the dependency name
-		string(APPEND CS_DEPENDENCY_NAME "-${CU_DOTNET_RID_NUGET}")
-		string(APPEND CSPROJ_REFERENCE_ITEMS "    <PackageReference Include=\"${CS_DEPENDENCY_NAME}\" Version=\"${CS_DEPENDENCY_VERSION}\" />\n")
-	endforeach()
-
 	# Configure csproj file (to expand variables)
 	set(CS_NUGET_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/${CSPROJ_FILE_NAME}-nuget")
 	set(CS_NUGET_NATIVES_FOLDER "${CS_NUGET_FOLDER}/native_dependencies")
@@ -166,6 +150,7 @@ function(cu_generate_csharp_nuget_target)
 		)
 	endforeach()
 	# Add the rest of the script
+	string(REPLACE ";" "\\;" ESCAPED_CS_PACKAGE_DEPENDENCIES "${CUGCSNT_CS_PACKAGE_DEPENDENCIES}")
 	string(APPEND GENERATE_CSPROJ_SCRIPT_CONTENT
 		"# Wipe native dependencies folder\n"
 		"file(REMOVE_RECURSE \"${CS_NUGET_NATIVES_FOLDER}\")\n"
@@ -180,6 +165,24 @@ function(cu_generate_csharp_nuget_target)
 		"foreach(COPIED_FILE \${COPIED_FILES})\n"
 		"\tadd_runtime_content_item(\"\${COPIED_FILE}\" CSPROJ_RUNTIME_ITEMS)\n"
 		"endforeach()\n"
+		"# Generate the list of reference items\n"
+		"set(CSPROJ_REFERENCE_ITEMS \"\")\n"
+		"set(CS_PACKAGE_DEPENDENCIES ${ESCAPED_CS_PACKAGE_DEPENDENCIES})\n"
+		"foreach(CS_DEPENDENCY \${CS_PACKAGE_DEPENDENCIES})\n"
+		"\tstring(REPLACE \":\" \"\;\" CS_DEPENDENCY_LIST \${CS_DEPENDENCY})\n"
+		"\t# Check list size is 2\n"
+		"\tlist(LENGTH CS_DEPENDENCY_LIST CS_DEPENDENCY_LIST_SIZE)\n"
+		"\tif(NOT CS_DEPENDENCY_LIST_SIZE EQUAL 2)\n"
+		"\t\tmessage(FATAL_ERROR \"Invalid dependency format (Expected: <PackageName>:<Version>): '\${CS_DEPENDENCY}'\")\n"
+		"\tendif()\n"
+		"\tlist(GET CS_DEPENDENCY_LIST 0 CS_DEPENDENCY_NAME)\n"
+		"\tlist(GET CS_DEPENDENCY_LIST 1 CS_DEPENDENCY_VERSION)\n"
+		"\t# Append CU_DOTNET_RID_NUGET to the dependency name\n"
+		"\tstring(APPEND CS_DEPENDENCY_NAME \"$<$<CONFIG:Debug>:-debug>-${CU_DOTNET_RID_NUGET}\")\n"
+		"\tstring(APPEND CSPROJ_REFERENCE_ITEMS \"    <PackageReference Include=\\\"\${CS_DEPENDENCY_NAME}\\\" Version=\\\"\${CS_DEPENDENCY_VERSION}\\\" />\n\")\n"
+		"endforeach()\n"
+		"# Define PACKAGE_ID variable\n"
+		"set(PACKAGE_ID \"${PACKAGE_ID}\")\n"
 		"# Configure csproj file (to expand variables again)\n"
 		"configure_file(\"${CSPROJ_TEMP_PATH}\" \"${CSPROJ_FINAL_PATH}\")\n"
 	)
