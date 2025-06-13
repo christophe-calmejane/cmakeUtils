@@ -22,14 +22,13 @@ set(CU_GENERATE_CSHARP_NUGET_TARGET_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 #  - "NUGET_PACK_TARGET_DEPENDENCIES <list of dependencies>" => List of cmake targets to be built before the nuget pack target (default: empty)
 #  - "NUGET_SOURCE_URL <nuget source url>" => Nuget source url to use (default: https://api.nuget.org/v3/index.json)
 #  - "NUGET_API_KEY <nuget api key>" => Nuget api key to use (default: empty)
-#  - "CONFIGURATION <configuration>" => Configuration to use (default: ${CMAKE_BUILD_TYPE})
 #  - "PACKAGE_NAME <package name>" => Name of the package (default: ${PROJECT_NAME})
 #  - "PACKAGE_VERSION <package version>" => Version of the package (default: ${CU_PROJECT_FRIENDLY_VERSION})
 function(cu_generate_csharp_nuget_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.27) # TARGET_LINKER_FILE added in cmake 3.27
 
-	cmake_parse_arguments(CUGCSNT "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;NUGET_SOURCE_URL;NUGET_API_KEY;CONFIGURATION;PACKAGE_NAME;PACKAGE_VERSION" "CS_SOURCE_FOLDERS;CS_PACKAGE_DEPENDENCIES;NUGET_PACK_TARGET_DEPENDENCIES" ${ARGN})
+	cmake_parse_arguments(CUGCSNT "" "TARGET_NAME;CSPROJ_TEMPLATE_PATH;CSPROJ_FILE_NAME;NUGET_SOURCE_URL;NUGET_API_KEY;PACKAGE_NAME;PACKAGE_VERSION" "CS_SOURCE_FOLDERS;CS_PACKAGE_DEPENDENCIES;NUGET_PACK_TARGET_DEPENDENCIES" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUGCSNT_TARGET_NAME)
@@ -41,11 +40,6 @@ function(cu_generate_csharp_nuget_target)
 	set(CSPROJ_TEMPLATE_PATH "${CU_GENERATE_CSHARP_NUGET_TARGET_FOLDER}/supportFiles/NugetTemplate.csproj.in")
 	set(NUGET_SOURCE_URL "https://api.nuget.org/v3/index.json")
 	set(NUGET_API_KEY "")
-	if(DEFINED CMAKE_BUILD_TYPE)
-		set(CONFIGURATION ${CMAKE_BUILD_TYPE})
-	else()
-		set(CONFIGURATION "Release")
-	endif()
 	set(PACKAGE_NAME ${PROJECT_NAME})
 	set(PACKAGE_VERSION ${CU_PROJECT_FRIENDLY_VERSION})
 
@@ -61,9 +55,6 @@ function(cu_generate_csharp_nuget_target)
 	endif()
 	if(CUGCSNT_NUGET_API_KEY)
 		set(NUGET_API_KEY -k ${CUGCSNT_NUGET_API_KEY})
-	endif()
-	if(CUGCSNT_CONFIGURATION)
-		set(CONFIGURATION ${CUGCSNT_CONFIGURATION})
 	endif()
 	if(CUGCSNT_PACKAGE_NAME)
 		set(PACKAGE_NAME ${CUGCSNT_PACKAGE_NAME})
@@ -81,7 +72,7 @@ function(cu_generate_csharp_nuget_target)
 	set(PACKAGE_ID "${PACKAGE_NAME}$<$<CONFIG:Debug>:-debug>-${CU_DOTNET_RID_NUGET}")
 
 	# Nuget package name
-	set(NUGET_PACKAGE_NAME "${PACKAGE_NAME}.${PACKAGE_VERSION}.nupkg")
+	set(NUGET_PACKAGE_NAME "${PACKAGE_ID}.${PACKAGE_VERSION}.nupkg")
 
 	# Generate the list of source folders to compile
 	set(CSPROJ_COMPILE_ITEMS "")
@@ -188,11 +179,10 @@ function(cu_generate_csharp_nuget_target)
 	)
 
 	# Write the script to a file
-	set(GENERATE_CSPROJ_SCRIPT "${CS_NUGET_FOLDER}/generateCSProjet.cmake")
+	set(GENERATE_CSPROJ_SCRIPT "${CS_NUGET_FOLDER}/generateCSProjet-$<CONFIG>.cmake")
 	file(GENERATE
 		OUTPUT ${GENERATE_CSPROJ_SCRIPT}
 		CONTENT ${GENERATE_CSPROJ_SCRIPT_CONTENT}
-		CONDITION $<CONFIG:${CONFIGURATION}>
 	)
 
 	# Print message
@@ -213,10 +203,10 @@ function(cu_generate_csharp_nuget_target)
 	endforeach()
 
 	# Add a custom target to pack the nuget
-	set(CS_NUPKG_OUTPUT_FOLDER "${CS_NUGET_FOLDER}/bin/${CONFIGURATION}")
+	set(CS_NUPKG_OUTPUT_FOLDER "${CS_NUGET_FOLDER}/bin/$<CONFIG>")
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-pack
-		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c ${CONFIGURATION} -o "${CS_NUPKG_OUTPUT_FOLDER}"
+		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c $<CONFIG> -o "${CS_NUPKG_OUTPUT_FOLDER}"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		BYPRODUCTS "${CS_NUPKG_OUTPUT_FOLDER}/${NUGET_PACKAGE_NAME}"
 		DEPENDS ${NUGET_PACK_TARGET_DEPENDENCIES}
