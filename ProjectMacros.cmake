@@ -312,7 +312,8 @@ function(cu_private_sign_postbuild_binary TARGET_NAME BINARY_PATH BINARY_NAME)
 	)
 
 	# Write to a cmake file
-	set(CODESIGN_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/codesign_$<CONFIG>_${BINARY_NAME}.cmake)
+	string(REPLACE ":" "_" SANITIZED_BINARY_NAME "${BINARY_NAME}")
+	set(CODESIGN_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/codesign_$<CONFIG>_${SANITIZED_BINARY_NAME}.cmake)
 	file(GENERATE
 		OUTPUT ${CODESIGN_SCRIPT}
 		CONTENT ${CODESIGNING_CODE}
@@ -377,7 +378,8 @@ function(cu_private_setup_signing_command TARGET_NAME)
 
 		# Write to a cmake file
 		if(NOT ${CUPSSC_NO_POST_BUILD})
-			set(CODESIGN_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/codesign_$<CONFIG>_${TARGET_NAME}.cmake)
+			string(REPLACE ":" "_" SANITIZED_TARGET_NAME "${TARGET_NAME}")
+			set(CODESIGN_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/codesign_$<CONFIG>_${SANITIZED_TARGET_NAME}.cmake)
 			file(GENERATE
 				OUTPUT ${CODESIGN_SCRIPT}
 				CONTENT ${CODESIGNING_CODE}
