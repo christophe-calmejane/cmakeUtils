@@ -44,7 +44,7 @@ endfunction()
 ##################################
 # Add a C# target dependency to CU_CSHARP_ADDITIONAL_COMPILE_ITEMS and CU_CSHARP_ADDITIONAL_CONTENT_ITEMS variables
 # Mandatory parameters:
-#  - "TARGET_NAME <target name>" => Name of the C# target
+#  - "TARGET_NAME" => Name of the C# target
 function(cu_generate_csharp_target_add_csharp_dependency TARGET_NAME)
 	# Check TARGET_NAME exists
 	if(NOT TARGET ${TARGET_NAME})
@@ -72,6 +72,33 @@ function(cu_generate_csharp_target_add_csharp_dependency TARGET_NAME)
 	# Return CU_CSHARP_ADDITIONAL_COMPILE_ITEMS and CU_CSHARP_ADDITIONAL_CONTENT_ITEMS to the caller
 	set(CU_CSHARP_ADDITIONAL_COMPILE_ITEMS "${CU_CSHARP_ADDITIONAL_COMPILE_ITEMS}" PARENT_SCOPE)
 	set(CU_CSHARP_ADDITIONAL_CONTENT_ITEMS "${CU_CSHARP_ADDITIONAL_CONTENT_ITEMS}" PARENT_SCOPE)
+endfunction()
+
+##################################
+# Add a Nuget dependency to CU_CSHARP_ADDITIONAL_CONTENT variables
+# Mandatory parameters:
+#  - "NUGET_NAME" => Name of the NuGet package
+#  - "NUGET_VERSION" => Version of the NuGet package
+function(cu_generate_csharp_target_add_nuget_dependency NUGET_NAME NUGET_VERSION)
+	# Check NUGET_NAME and NUGET_VERSION are set
+	if(NOT NUGET_NAME)
+		message(FATAL_ERROR "NUGET_NAME required")
+	endif()
+	if(NOT NUGET_VERSION)
+		message(FATAL_ERROR "NUGET_VERSION required")
+	endif()
+
+	string(APPEND CU_CSHARP_ADDITIONAL_CONTENT
+		"  <ItemGroup Condition=\"'$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64'\">\n"
+		"    <PackageReference Include=\"${NUGET_NAME}-osx\" Version=\"${NUGET_VERSION}\" />\n"
+		"  </ItemGroup>\n"
+		"  <ItemGroup Condition=\"'$(RuntimeIdentifier)' == 'win-x64'\">\n"
+		"    <PackageReference Include=\"${NUGET_NAME}-win-x64\" Version=\"${NUGET_VERSION}\" />\n"
+		"  </ItemGroup>\n"
+	)
+
+	# Return CU_CSHARP_ADDITIONAL_COMPILE_ITEMS to the caller
+	set(CU_CSHARP_ADDITIONAL_CONTENT "${CU_CSHARP_ADDITIONAL_CONTENT}" PARENT_SCOPE)
 endfunction()
 
 ##################################

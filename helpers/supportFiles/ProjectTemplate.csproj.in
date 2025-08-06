@@ -13,10 +13,11 @@
     <RuntimeIdentifier>${CU_DOTNET_RID_APP}</RuntimeIdentifier>
   </PropertyGroup>
 
-   <ItemGroup>
-      <Compile Include="${CMAKE_CURRENT_SOURCE_DIR}/**/*.cs" />
-      ${CU_CSHARP_ADDITIONAL_COMPILE_ITEMS}
-      ${CU_CSHARP_ADDITIONAL_CONTENT_ITEMS}
+  <ItemGroup>
+    <Compile Include="${CMAKE_CURRENT_SOURCE_DIR}/**/*.cs" />
+    ${CU_CSHARP_ADDITIONAL_COMPILE_ITEMS}
+    ${CU_CSHARP_ADDITIONAL_CONTENT_ITEMS}
   </ItemGroup>
+${CU_CSHARP_ADDITIONAL_CONTENT}
 
 </Project>
