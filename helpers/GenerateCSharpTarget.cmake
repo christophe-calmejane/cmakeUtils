@@ -17,9 +17,16 @@ function(cu_private_get_target_soname_file_name_generator_expression TARGET_NAME
 		# On windows, use TARGET_FILE_NAME
 		set(CS_TARGET_FILE_NAME "$<TARGET_FILE_NAME:${TARGET_NAME}>")
 	else()
-		# For non-windows targets that use SONAME, we want to use the soname file (which is a symbolink link to the LINKER file, but it will be copied by following the link)
-		set(CS_TARGET_FILE_NAME "$<TARGET_SONAME_FILE_NAME:${TARGET_NAME}>")
-		# If someday csproj files support copying symbolink links, we'll have to copy the 3 files (without following the links): TARGET_FILE_NAME, TARGET_LINKER_FILE_NAME and TARGET_SONAME_FILE_NAME
+		# Get IMPORTED property from the target
+		get_target_property(IS_IMPORTED ${TARGET_NAME} IMPORTED)
+		# If target is imported, we must use the TARGET_LINKER_FILE_NAME because the reference used (for IMPORTED targets) to link the c++ library is not the SONAME file but the linker file
+		if(IS_IMPORTED)
+			set(CS_TARGET_FILE_NAME "$<TARGET_LINKER_FILE_NAME:${TARGET_NAME}>")
+		else()
+			# For non-windows targets that use SONAME, we want to use the soname file (which is a symbolink link to the LINKER file, but it will be copied by following the link)
+			set(CS_TARGET_FILE_NAME "$<TARGET_SONAME_FILE_NAME:${TARGET_NAME}>")
+			# If someday csproj files support copying symbolink links, we'll have to copy the 3 files (without following the links): TARGET_FILE_NAME, TARGET_LINKER_FILE_NAME and TARGET_SONAME_FILE_NAME
+		endif()
 	endif()
 	# Return the CS_TARGET_FILE_NAME to the caller
 	set(CS_TARGET_FILE_NAME "${CS_TARGET_FILE_NAME}" PARENT_SCOPE)
