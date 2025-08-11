@@ -86,6 +86,8 @@ endfunction()
 # Mandatory parameters:
 #  - "NUGET_NAME" => Name of the NuGet package
 #  - "NUGET_VERSION" => Version of the NuGet package
+# Optional parameters:
+#  - "NON_UNIVERSAL" => If set, the NuGet dependency will not use the universal architecture package
 function(cu_generate_csharp_target_add_nuget_dependency NUGET_NAME NUGET_VERSION)
 	# Check NUGET_NAME and NUGET_VERSION are set
 	if(NOT NUGET_NAME)
@@ -95,12 +97,33 @@ function(cu_generate_csharp_target_add_nuget_dependency NUGET_NAME NUGET_VERSION
 		message(FATAL_ERROR "NUGET_VERSION required")
 	endif()
 
+	# Parse optional arguments
+	cmake_parse_arguments(CUGCTAND "NON_UNIVERSAL" "" "" ${ARGN})
+
+	# macOS
+	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		if(CUGCTAND_NON_UNIVERSAL)
+			# Requesting non-universal but CU_DOTNET_RID_APP is no set or empty (which means universal build)
+			if(NOT DEFINED CU_DOTNET_RID_APP OR CU_DOTNET_RID_APP STREQUAL "")
+				message(FATAL_ERROR "cu_generate_csharp_target_add_nuget_dependency: Requesting NON_UNIVERSAL NuGet but building universal binary.")
+			endif()
+			# Set to the current architecture
+			set(NUGET_RID "${CU_DOTNET_RID_APP}")
+		else()
+			# Building universal binary, so we use the universal package
+			if(NOT DEFINED CU_DOTNET_RID_APP OR CU_DOTNET_RID_APP STREQUAL "")
+				set(NUGET_RID "osx")
+			else()
+				set(NUGET_RID "${CU_DOTNET_RID_APP}")
+			endif()
+		endif()
+	else()
+		set(NUGET_RID "${CU_DOTNET_RID_APP}")
+	endif()
+
 	string(APPEND CU_CSHARP_ADDITIONAL_CONTENT
-		"  <ItemGroup Condition=\"'$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64'\">\n"
-		"    <PackageReference Include=\"${NUGET_NAME}-osx\" Version=\"${NUGET_VERSION}\" />\n"
-		"  </ItemGroup>\n"
-		"  <ItemGroup Condition=\"'$(RuntimeIdentifier)' == 'win-x64'\">\n"
-		"    <PackageReference Include=\"${NUGET_NAME}-win-x64\" Version=\"${NUGET_VERSION}\" />\n"
+		"  <ItemGroup>\n"
+		"    <PackageReference Include=\"${NUGET_NAME}-${NUGET_RID}\" Version=\"${NUGET_VERSION}\" />\n"
 		"  </ItemGroup>\n"
 	)
 
