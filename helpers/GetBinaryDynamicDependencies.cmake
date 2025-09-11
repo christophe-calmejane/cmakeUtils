@@ -45,12 +45,12 @@ function(cu_get_binary_dynamic_dependencies)
 		endif()
 
 		# Match with the leading 4 spaces so we ignore "Dump of file xxx.dll" that is outputed by dumpbin
-		string(REGEX MATCHALL "    [^ .]+\\.[dD][lL][lL]" DEPENDENCIES_LIST "${CMD_OUTPUT}")
-		foreach(DEPENDENCY ${DEPENDENCIES_LIST})
+		string(REGEX MATCHALL "    [^ .]+\\.[dD][lL][lL]" CUGBDD_DEPENDENCIES_LIST "${CMD_OUTPUT}")
+		foreach(DEPENDENCY ${CUGBDD_DEPENDENCIES_LIST})
 			# Remove the leading 4 spaces that we matched
-			string(REGEX REPLACE "^    " "" DEPENDENCY "${DEPENDENCY}")
+			string(REGEX REPLACE "^    " "" CLEAN_DEPENDENCY "${DEPENDENCY}")
 			# Append to list
-			list(APPEND ${CUGBDD_DEP_LIST_OUTPUT} "${DEPENDENCY}")
+			list(APPEND ${CUGBDD_DEP_LIST_OUTPUT} "${CLEAN_DEPENDENCY}")
 		endforeach()
 
 	elseif(CMAKE_HOST_APPLE)
