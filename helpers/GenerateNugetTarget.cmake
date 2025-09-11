@@ -121,9 +121,10 @@ function(cu_generate_csharp_nuget_target)
 		"endmacro()\n"
 		"\n"
 	)
-	# Add current binary folder to the search directories
+	# Add output folder of the target to the search directories
 	string(APPEND GENERATE_CSPROJ_SCRIPT_CONTENT
-		"list(APPEND DEPENDENCIES_SEARCH_DIRS \"${CMAKE_CURRENT_BINARY_DIR}\")\n"
+		"# Add output folder of the target to the search directories\n"
+		"list(APPEND DEPENDENCIES_SEARCH_DIRS \"$<TARGET_FILE_DIR:${CUGCSNT_TARGET_NAME}>\")\n"
 	)
 	# Add the search directories (for debug configuration)
 	foreach(DEP_SEARCH_DIR ${depSearchDirsDebug})
