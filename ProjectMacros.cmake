@@ -1000,6 +1000,10 @@ function(cu_setup_library_options TARGET_NAME)
 			add_library(${PROJECT_NAME}::${ALIAS_NAME} ALIAS ${TARGET_NAME})
 			message(STATUS "Added alias for ${TARGET_NAME} (${PROJECT_NAME}::${ALIAS_NAME})")
 		endif()
+		# Add the target to the global property holding the list of shared library targets
+		get_property(cuTargets GLOBAL PROPERTY CU_SHARED_LIBRARY_TARGETS_LIST)
+		list(APPEND cuTargets ${TARGET_NAME})
+		set_property(GLOBAL PROPERTY CU_SHARED_LIBRARY_TARGETS_LIST ${cuTargets})
 
 	# Module library special options
 	elseif(${targetType} STREQUAL "MODULE_LIBRARY")

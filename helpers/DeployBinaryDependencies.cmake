@@ -18,7 +18,7 @@ cmake_policy(SET CMP0057 NEW) # Support new IN_LIST if() operator
 
 ##################################
 # Internal function
-function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLDER)
+function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLDER FAIL_ON_MISSING_TARGET_DEPENDENCY)
 	# Get target binary name and folder
 	get_filename_component(BINARY_NAME "${BINARY_PATH}" NAME)
 	get_filename_component(BINARY_FOLDER "${BINARY_PATH}" DIRECTORY)
@@ -65,9 +65,25 @@ function(cu_private_get_binary_dependencies_to_copy BINARY_PATH DESTINATION_FOLD
 
 		if(${IS_FOUND})
 			# Recursively process this binary
-			cu_private_get_binary_dependencies_to_copy("${DEPENDENCY_PATH}" "${DESTINATION_FOLDER}")
+			cu_private_get_binary_dependencies_to_copy("${DEPENDENCY_PATH}" "${DESTINATION_FOLDER}" ${FAIL_ON_MISSING_TARGET_DEPENDENCY})
 		else()
-			# message(STATUS "Dependency ${DEPENDENCY} not found, skipping...")
+			if(FAIL_ON_MISSING_TARGET_DEPENDENCY)
+				if(NOT DEFINED CMAKE_SHARED_LIBRARY_PREFIX)
+					message(FATAL_ERROR "CMAKE_SHARED_LIBRARY_PREFIX not defined. If this function is called from a compile time generated context, you must define the variables manually.")
+				endif()
+				if(NOT DEFINED CMAKE_SHARED_LIBRARY_SUFFIX)
+					message(FATAL_ERROR "CMAKE_SHARED_LIBRARY_SUFFIX not defined. If this function is called from a compile time generated context, you must define the variables manually.")
+				endif()
+				if(NOT DEFINED CU_SHARED_LIBRARY_TARGETS_LIST)
+					message(FATAL_ERROR "CU_SHARED_LIBRARY_TARGETS_LIST not defined. If this function is called from a compile time generated context, you must define the variables manually.")
+				endif()
+				# Check if this binary file is the binary output of a known target (we cannot use get_filename_component as the file does not exist)
+				string(REPLACE "." "\\." ESCAPED_SUFFIX "${CMAKE_SHARED_LIBRARY_SUFFIX}")
+				string(REGEX REPLACE "^${CMAKE_SHARED_LIBRARY_PREFIX}(.*)${ESCAPED_SUFFIX}$" "\\1" DEP_TARGET_NAME "${DEPENDENCY}")
+				if("${DEP_TARGET_NAME}" IN_LIST CU_SHARED_LIBRARY_TARGETS_LIST)
+					message(FATAL_ERROR "Dependency ${DEPENDENCY} is a generated target (${DEP_TARGET_NAME}), but it's output file couldn't be found in the search directories.")
+				endif()
+			endif()
 			continue()
 		endif()
 	endforeach()
@@ -84,12 +100,13 @@ endfunction()
 # Optional parameters:
 #  - "SEARCH_DIRS <folder> ..." => List of folders to search for dependencies in
 #  - "COPIED_FILES_VAR <list of copied files>" => variable receiving the list of copied files (files are appended to this list variable, if it's specified)
+#  - "FAIL_ON_MISSING_TARGET_DEPENDENCY" => If set, the function will fail if a dependency which is a known target cannot be found (default: it will just skip the dependency)
 function(cu_deploy_runtime_binary)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.15) # FOLLOW_SYMLINK_CHAIN added in cmake 3.15
 
 	# Parse arguments
-	cmake_parse_arguments(CUDRB "" "BINARY_PATH;TARGET_DIR;COPIED_FILES_VAR" "SEARCH_DIRS" ${ARGN})
+	cmake_parse_arguments(CUDRB "FAIL_ON_MISSING_TARGET_DEPENDENCY" "BINARY_PATH;TARGET_DIR;COPIED_FILES_VAR" "SEARCH_DIRS" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUDRB_BINARY_PATH)
@@ -111,10 +128,15 @@ function(cu_deploy_runtime_binary)
 		message(FATAL_ERROR "TARGET_DIR required")
 	endif()
 
+	set(FAIL_ON_MISSING_TARGET_DEPENDENCY FALSE)
+	if(CUDRB_FAIL_ON_MISSING_TARGET_DEPENDENCY)
+		set(FAIL_ON_MISSING_TARGET_DEPENDENCY TRUE)
+	endif()
+
 	# Recursively get dependencies
 	set(VISITED_DEPENDENCIES)
 	set(BINARY_DEPENDENCIES)
-	cu_private_get_binary_dependencies_to_copy("${CUDRB_BINARY_PATH}" "${CUDRB_TARGET_DIR}")
+	cu_private_get_binary_dependencies_to_copy("${CUDRB_BINARY_PATH}" "${CUDRB_TARGET_DIR}" ${FAIL_ON_MISSING_TARGET_DEPENDENCY})
 
 	foreach(DEP ${BINARY_DEPENDENCIES})
 		# Build destination file full path

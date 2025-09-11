@@ -24,6 +24,7 @@ set(CU_GENERATE_CSHARP_NUGET_TARGET_FOLDER "${CMAKE_CURRENT_LIST_DIR}")
 #  - "NUGET_API_KEY <nuget api key>" => Nuget api key to use (default: empty)
 #  - "PACKAGE_NAME <package name>" => Name of the package (default: ${PROJECT_NAME})
 #  - "PACKAGE_VERSION <package version>" => Version of the package (default: ${CU_PROJECT_FRIENDLY_VERSION})
+# TODO: Add a new parameter to add more search directories for dependencies (to be added to DEPENDENCIES_SEARCH_DIRS)
 function(cu_generate_csharp_nuget_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.27) # TARGET_LINKER_FILE added in cmake 3.27
@@ -141,8 +142,14 @@ function(cu_generate_csharp_nuget_target)
 		)
 	endforeach()
 	# Add the rest of the script
+	get_property(cuTargets GLOBAL PROPERTY CU_SHARED_LIBRARY_TARGETS_LIST)
 	string(REPLACE ";" "\\;" ESCAPED_CS_PACKAGE_DEPENDENCIES "${CUGCSNT_CS_PACKAGE_DEPENDENCIES}")
+	string(REPLACE ";" "\\;" ESCAPED_cuTargets "${cuTargets}")
 	string(APPEND GENERATE_CSPROJ_SCRIPT_CONTENT
+		"# Define some CMake variables/properties that won't exist anymore during cu_deploy_runtime_binary call from a script file\n"
+		"set(CMAKE_SHARED_LIBRARY_PREFIX \"${CMAKE_SHARED_LIBRARY_PREFIX}\")\n" # Required only if passing FAIL_ON_MISSING_TARGET_DEPENDENCY to cu_deploy_runtime_binary
+		"set(CMAKE_SHARED_LIBRARY_SUFFIX \"${CMAKE_SHARED_LIBRARY_SUFFIX}\")\n" # Required only if passing FAIL_ON_MISSING_TARGET_DEPENDENCY to cu_deploy_runtime_binary
+		"set(CU_SHARED_LIBRARY_TARGETS_LIST ${ESCAPED_cuTargets})\n" # Required only if passing FAIL_ON_MISSING_TARGET_DEPENDENCY to cu_deploy_runtime_binary
 		"# Wipe native dependencies folder\n"
 		"file(REMOVE_RECURSE \"${CS_NUGET_NATIVES_FOLDER}\")\n"
 		"# Deploy runtime dependencies\n"
