@@ -799,6 +799,60 @@ function(cu_setup_apple_minimum_versions)
 endfunction()
 
 ###############################################################################
+# Compile a macOS Asset Catalog and copy it to the resource folder.
+# Does nothing if not on Apple platform or target is not a bundle.
+# Mandatory parameters:
+#  - "TARGET_NAME" => The target name to which the resource will be added during its
+#  - PLATFORM "<platform>" => The platform to compile the asset catalog for (eg. macosx, iphoneos, ...)
+#  - SOURCES "<source folders>" => One or more folders to compile into the catalog file (eg. Assets.xcassets AppIcon.icon ...)
+# Optional parameters:
+#  - APP_ICON "<icon name>" => The app icon name to use (default is AppIcon)
+function(cu_compile_asset_catalog TARGET_NAME)
+	if(APPLE)
+		cu_is_macos_bundle(${TARGET_NAME} isBundle)
+		if(NOT ${isBundle})
+			return()
+		endif()
+
+		# Parse arguments
+		cmake_parse_arguments(CUAC "" "PLATFORM" "SOURCES" ${ARGN})
+		if(NOT CUAC_SOURCES)
+			message(FATAL_ERROR "cu_compile_asset_catalog: SOURCES argument is mandatory")
+		endif()
+		if(NOT CUAC_PLATFORM)
+			message(FATAL_ERROR "cu_compile_asset_catalog: PLATFORM argument is mandatory")
+		endif()
+		if(CUAC_APP_ICON)
+			set(APP_ICON_NAME ${CUAC_APP_ICON})
+		else()
+			set(APP_ICON_NAME "AppIcon")
+		endif()
+
+		add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/Assets.car
+				COMMAND xcrun actool --compile "${CMAKE_CURRENT_BINARY_DIR}/" --platform ${CUAC_PLATFORM} --app-icon ${APP_ICON_NAME} --minimum-deployment-target ${CMAKE_OSX_DEPLOYMENT_TARGET} --output-partial-info-plist "${CMAKE_CURRENT_BINARY_DIR}/dummy.plist" --enable-icon-stack-fallback-generation=disabled --include-all-app-icons ${CUAC_SOURCES}
+				DEPENDS ${CUAC_SOURCES}
+				VERBATIM
+			)
+
+		# Add a custom target
+		add_custom_target(GenerateAppleCatalog_${TARGET_NAME} DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/Assets.car SOURCES ${CUAC_SOURCES})
+
+		# Copy generated catalog to resource folder
+		add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_BINARY_DIR}/Assets.car" "$<TARGET_FILE_DIR:${TARGET_NAME}>/../Resources/Assets.car"
+			VERBATIM
+		)
+
+		# Group the target in the resources folder
+		set_target_properties(GenerateAppleCatalog_${TARGET_NAME} PROPERTIES FOLDER resources)
+
+		# Add a dependency
+		add_dependencies(${TARGET_NAME} GenerateAppleCatalog_${TARGET_NAME})
+	endif()
+
+endfunction()
+
+###############################################################################
 # Set a file as a resource for a target.
 # This will copy the file to the resources folder for non bundle targets and to the Resources folder for bundles
 # Optional parameters:
