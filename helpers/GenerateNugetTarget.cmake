@@ -214,7 +214,8 @@ function(cu_generate_csharp_nuget_target)
 	set(CS_NUPKG_OUTPUT_FOLDER "${CS_NUGET_FOLDER}/bin/$<CONFIG>")
 	add_custom_target(
 		${CUGCSNT_TARGET_NAME}-nuget-pack
-		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" -c $<CONFIG> -o "${CS_NUPKG_OUTPUT_FOLDER}"
+		COMMAND dotnet restore "${CSPROJ_FINAL_PATH}" --ignore-failed-sources
+		COMMAND dotnet pack "${CSPROJ_FINAL_PATH}" --no-restore -c $<CONFIG> -o "${CS_NUPKG_OUTPUT_FOLDER}"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		BYPRODUCTS "${CS_NUPKG_OUTPUT_FOLDER}/${NUGET_PACKAGE_NAME}"
 		DEPENDS ${NUGET_PACK_TARGET_DEPENDENCIES}
