@@ -41,6 +41,7 @@ endfunction()
 #  - "VERSION <version>" => Minimum version of SWIG required
 #  - "FILE_DEPENDENCIES <file> [<other file>...]" => List of files to add as dependencies of the SWIG target
 #  - "INSTALL_CONFIGURATIONS <List of install configuration>" -> Select the configurations for which the install rules will be generated (Default: Release)
+#  - "INTERFACE_FILE_COMPILE_OPTIONS <List of compile options>" -> List of compile options to add to the SWIG interface file for all languages
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_CSHARP <List of compile options>" -> List of compile options to add to the SWIG interface file for C#
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_LUA <List of compile options>" -> List of compile options to add to the SWIG interface file for LUA
 #  - "INTERFACE_FILE_COMPILE_OPTIONS_PYTHON <List of compile options>" -> List of compile options to add to the SWIG interface file for PYTHON
@@ -49,7 +50,7 @@ function(cu_setup_swig_target)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.29) # Required due to bug in previous versions (https://gitlab.kitware.com/cmake/cmake/-/issues/25405)
 
-	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION;OUTVAR_PREFIX_SUPPORT_FILES_FOLDER" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS;INTERFACE_FILE_COMPILE_OPTIONS_CSHARP;INTERFACE_FILE_COMPILE_OPTIONS_LUA;INTERFACE_FILE_COMPILE_OPTIONS_PYTHON" ${ARGN})
+	cmake_parse_arguments(CUSST "REQUIRED;INSTALL_SUPPORT_FILES" "TARGET_NAME;INTERFACE_FILE;SWIG_TARGET_PREFIX;VERSION;OUTVAR_PREFIX_SUPPORT_FILES_FOLDER" "LANGUAGES;FILE_DEPENDENCIES;INSTALL_CONFIGURATIONS;INTERFACE_FILE_COMPILE_OPTIONS;INTERFACE_FILE_COMPILE_OPTIONS_CSHARP;INTERFACE_FILE_COMPILE_OPTIONS_LUA;INTERFACE_FILE_COMPILE_OPTIONS_PYTHON" ${ARGN})
 
 	# Check required parameters validity
 	if(NOT CUSST_TARGET_NAME)
@@ -127,6 +128,11 @@ function(cu_setup_swig_target)
 #				list(APPEND SWIG_FILE_COMPILE_OPTIONS -dllimport "${SWIG_TARGET_NAME}.framework/${SWIG_TARGET_NAME}")
 #			endif()
 			# If swig file compile options are provided, add them to the SWIG_FILE_COMPILE_OPTIONS list
+			if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS)
+				foreach(OPT ${CUSST_INTERFACE_FILE_COMPILE_OPTIONS})
+					list(APPEND SWIG_FILE_COMPILE_OPTIONS ${OPT})
+				endforeach()
+			endif()
 			if(${SWIG_LANG} STREQUAL "csharp")
 				if(CUSST_INTERFACE_FILE_COMPILE_OPTIONS_CSHARP)
 					foreach(OPT ${CUSST_INTERFACE_FILE_COMPILE_OPTIONS_CSHARP})
