@@ -1810,6 +1810,120 @@ function(_cu_vscode_write_workspace)
 endfunction()
 
 ###############################################################################
+# Deploy Lua SWIG bindings and its dependencies to the binary directory
+# Mandatory parameters:
+#  - "CUSTOM_TARGET_NAME" => Name of the custom target to create (must be unique in the project)
+#  - "SWIG_TARGET_NAME" => Name of the target to deploy (as defined in cu_setup_swig_target)
+#  - "SWIG_MODULE_NAME" => Name of the SWIG module (as defined in the SWIG interface file)
+# Optional parameters:
+#  - "INSTALL" -> Generate CMake install rules
+# TODO: Add 'SIGN' option and code like in cu_deploy_runtime_target
+function(cu_deploy_lua_bindings CUSTOM_TARGET_NAME SWIG_TARGET_NAME SWIG_MODULE_NAME)
+	# Check for cmake minimum version
+	cmake_minimum_required(VERSION 3.14)
+
+	# Parse optional arguments
+	cmake_parse_arguments(CUDLB "INSTALL" "" "" ${ARGN})
+
+	# We generate a cmake script that will contain all the commands
+	string(REPLACE ":" "_" SANITIZED_TARGET_NAME "${SWIG_TARGET_NAME}")
+	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_lua_bindings_$<CONFIG>_${SANITIZED_TARGET_NAME}.cmake)
+	set(DEPLOY_SCRIPT_CONTENT "")
+
+	get_property(depSearchDirsDebug GLOBAL PROPERTY CU_DEPLOY_RUNTIME_SEARCH_DIRS_DEBUG)
+	get_property(depSearchDirsOptimized GLOBAL PROPERTY CU_DEPLOY_RUNTIME_SEARCH_DIRS_OPTIMIZED)
+
+	string(CONCAT DEPLOY_SCRIPT_CONTENT
+		"include(\"${CMAKE_MACROS_FOLDER}/helpers/DeployBinaryDependencies.cmake\")\n"
+		"set(DEPENDENCIES_SEARCH_DIRS)\n"
+		"set(RUNTIME_FOLDER \"${CMAKE_CURRENT_BINARY_DIR}\")\n"
+	)
+	foreach(DEP_SEARCH_DIR ${depSearchDirsDebug})
+		string(APPEND DEPLOY_SCRIPT_CONTENT
+			"if(\"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+			"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+			"endif()\n"
+		)
+		string(APPEND INSTALL_INIT_CODE
+			"if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+			"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+			"endif()\n"
+		)
+	endforeach()
+	foreach(DEP_SEARCH_DIR ${depSearchDirsOptimized})
+		string(APPEND DEPLOY_SCRIPT_CONTENT
+			"if(NOT \"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+			"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+			"endif()\n"
+		)
+		string(APPEND INSTALL_INIT_CODE
+			"if(NOT \"\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+			"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+			"endif()\n"
+		)
+	endforeach()
+
+	get_target_property(_TARGET_TYPE ${SWIG_TARGET_NAME} TYPE)
+	if(_TARGET_TYPE STREQUAL "SHARED_LIBRARY")
+		set(VISITED_DEPENDENCIES)
+		cu_private_target_list_link_libraries("${SWIG_TARGET_NAME}" "${SWIG_TARGET_NAME}" _LIBRARY_DEPENDENCIES_OUTPUT _QT_DEPENDENCIES_OUTPUT)
+		list(APPEND _LIBRARY_DEPENDENCIES_OUTPUT ${SWIG_TARGET_NAME})
+		list(REMOVE_DUPLICATES _LIBRARY_DEPENDENCIES_OUTPUT)
+
+		# Process each runtime dependency
+		foreach(_LIBRARY ${_LIBRARY_DEPENDENCIES_OUTPUT})
+			# Copy dynamic library to the runtime folder (but only if file is newer, which includes if they are identical) based on RUNTIME_FOLDER variable that is different for easy-debug and install rules
+			string(CONCAT COPY_TARGET_FILE_CODE
+				"list(APPEND DEPENDENCIES_SEARCH_DIRS \"$<TARGET_FILE_DIR:${_LIBRARY}>\")\n"
+				"cu_is_newer_than(\"$<TARGET_FILE:${_LIBRARY}>\" \"\${RUNTIME_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\" IS_NEWER_THAN_RESULT)\n"
+				"if(\${IS_NEWER_THAN_RESULT})\n"
+				"\tmessage(\" - Copying target file $<TARGET_FILE:${_LIBRARY}> => \${RUNTIME_FOLDER}\")\n"
+				"\tfile(COPY \"$<TARGET_FILE:${_LIBRARY}>\" DESTINATION \"\${RUNTIME_FOLDER}\")\n"
+				"\tlist(APPEND BINARIES_TO_SIGN \"\${RUNTIME_FOLDER}/$<TARGET_FILE_NAME:${_LIBRARY}>\")\n"
+				"endif()\n"
+			)
+			# Don't forget to copy the SONAME symlink if it exists (for platforms supporting it), no need to sign it as it's a symlink
+			if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+				string(CONCAT COPY_TARGET_FILE_CODE
+					${COPY_TARGET_FILE_CODE}
+					"if(NOT \"$<TARGET_FILE_NAME:${_LIBRARY}>\" STREQUAL \"$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\")\n"
+					"\tcu_is_newer_than(\"$<TARGET_SONAME_FILE:${_LIBRARY}>\" \"\${RUNTIME_FOLDER}/$<TARGET_SONAME_FILE_NAME:${_LIBRARY}>\" IS_NEWER_THAN_RESULT)\n"
+					"\tif(\${IS_NEWER_THAN_RESULT})\n"
+					"\t\tmessage(\" - Copying target file SONAME $<TARGET_SONAME_FILE:${_LIBRARY}> => \${RUNTIME_FOLDER}\")\n"
+					"\t\tfile(COPY \"$<TARGET_SONAME_FILE:${_LIBRARY}>\" DESTINATION \"\${RUNTIME_FOLDER}\")\n"
+					"\tendif()\n"
+					"endif()\n"
+				)
+			endif()
+
+			string(APPEND DEPLOY_SCRIPT_CONTENT
+				"${COPY_TARGET_FILE_CODE}"
+			)
+
+			# If install deployment is requested
+			if(CUDLB_INSTALL)
+				install(CODE
+					"${COPY_TARGET_FILE_CODE}"
+				)
+			endif()
+		endforeach()
+	endif()
+
+	# Write to a cmake file
+	file(GENERATE
+		OUTPUT ${DEPLOY_SCRIPT}
+		CONTENT ${DEPLOY_SCRIPT_CONTENT}
+	)
+	# Add a custom target to run the script
+	add_custom_target(${CUSTOM_TARGET_NAME} ALL
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${SWIG_TARGET_NAME}> ${CMAKE_CURRENT_BINARY_DIR}/${SWIG_MODULE_NAME}${CMAKE_SHARED_MODULE_SUFFIX}
+		COMMAND ${CMAKE_COMMAND} -P ${DEPLOY_SCRIPT}
+		DEPENDS ${SWIG_TARGET_NAME}
+		COMMENT "Copying Lua SWIG bindings and its dependencies"
+	)
+endfunction()
+
+###############################################################################
 # Utility function to download a file from an URL.
 function(cu_download_file URL DESTINATION)
 	file(DOWNLOAD ${URL} ${DESTINATION} STATUS DOWNLOAD_RESULT)

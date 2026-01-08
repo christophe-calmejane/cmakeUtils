@@ -69,7 +69,7 @@ function(cu_generate_csharp_target_add_csharp_dependency TARGET_NAME)
 		foreach(_LIBRARY ${_LIBRARY_DEPENDENCIES_OUTPUT})
 			# Check if the library is a target
 			if(TARGET ${_LIBRARY})
-			cu_private_get_target_soname_file_name_generator_expression("${_LIBRARY}")
+				cu_private_get_target_soname_file_name_generator_expression("${_LIBRARY}")
 				string(APPEND CU_CSHARP_ADDITIONAL_CONTENT_ITEMS "      <Content Include=\"$<TARGET_FILE:${_LIBRARY}>\" Link=\"${CS_TARGET_FILE_NAME}\"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>\n")
 			endif()
 		endforeach()
