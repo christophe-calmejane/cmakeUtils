@@ -746,25 +746,73 @@ function(cu_set_precompiled_headers TARGET_NAME HEADER_NAME)
 endfunction()
 
 ###############################################################################
-# Setup ASAN options for the target
-function(cu_setup_asan_options TARGET_NAME)
-	get_target_property(targetType ${TARGET_NAME} TYPE)
-	if(MSVC)
-		target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
-		if(NOT ${targetType} STREQUAL "STATIC_LIBRARY")
-			target_link_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:/INCREMENTAL:NO>)
+# Setup the sanitizers (ASAN, TSAN, UBSAN)
+# Reads CU_ENABLE_ASAN, CU_ENABLE_TSAN and CU_ENABLE_UBSAN directly.
+# Some combinations (flags + platform) may not be compatible
+function(cu_setup_sanitizers TARGET_NAME)
+	set(ENABLE_ASAN  ${CU_ENABLE_ASAN})
+	set(ENABLE_TSAN  ${CU_ENABLE_TSAN})
+	set(ENABLE_UBSAN ${CU_ENABLE_UBSAN})
+
+	if (APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		# Compatibility checks:
+		#   - ASAN + TSAN -> NOK
+		#   - Otherwise   -> OK
+		if(ENABLE_ASAN AND ENABLE_TSAN)
+			message(FATAL_ERROR "ASAN and TSAN cannot be enabled together on Clang")
 		endif()
 
-		# We have to change global flags as there is no cl.exe flag to cancel /RTC
-		string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-		string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}" CACHE STRING "Force C flags for ASAN" FORCE)
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}" CACHE STRING "Force C++ flags for ASAN" FORCE)
+		# Build LLVM sanitizer args
+		set(LLVM_SAN "")
+		if(ENABLE_ASAN)
+			list(APPEND LLVM_SAN "address")
+		endif()
+		if(ENABLE_TSAN)
+			list(APPEND LLVM_SAN "thread")
+		endif()
+		if(ENABLE_UBSAN)
+			list(APPEND LLVM_SAN "undefined")
+		endif()
 
-	elseif(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-		target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+		list(JOIN LLVM_SAN "," LLVM_SAN_ARG)
+		# Nothing to do?
+		if(NOT LLVM_SAN_ARG)
+			return()
+		endif()
+
+		get_target_property(targetType ${TARGET_NAME} TYPE)
+
+		# Apply flags
+		target_compile_options(${TARGET_NAME} PRIVATE
+			$<$<CONFIG:Debug>:-fsanitize=${LLVM_SAN_ARG}>
+			$<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+		)
+
 		if(NOT ${targetType} STREQUAL "STATIC_LIBRARY")
-			target_link_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+			target_link_options(${TARGET_NAME} PRIVATE
+				$<$<CONFIG:Debug>:-fsanitize=${LLVM_SAN_ARG}>
+			)
+		endif()
+	elseif(MSVC)
+		# Compatibility checks:
+		# 	- Only ASAN available
+		if(ENABLE_ASAN)
+			target_compile_options(${TARGET_NAME} PRIVATE
+				$<$<CONFIG:Debug>:-fsanitize=address>
+			)
+
+			get_target_property(targetType ${TARGET_NAME} TYPE)
+			if(NOT ${targetType} STREQUAL "STATIC_LIBRARY")
+				target_link_options(${TARGET_NAME} PRIVATE
+					$<$<CONFIG:Debug>:/INCREMENTAL:NO>
+				)
+			endif()
+
+			# We have to change global flags as there is no cl.exe flag to cancel /RTC
+			string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+			string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+			set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}" CACHE STRING "Force C flags for ASAN" FORCE)
+			set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}" CACHE STRING "Force C++ flags for ASAN" FORCE)
 		endif()
 	endif()
 endfunction()
@@ -1074,10 +1122,8 @@ function(cu_setup_library_options TARGET_NAME)
 		message(FATAL_ERROR "Unsupported target type for cu_setup_library_options: ${targetType}")
 	endif()
 
-	# Setup ASAN options
-	if(CU_ENABLE_ASAN)
-		cu_setup_asan_options(${TARGET_NAME})
-	endif()
+	# Setup sanitizers options
+	cu_setup_sanitizers(${TARGET_NAME})
 
 	# Colorize the output
 	if (NOT CUSLO_NO_OUTPUT_COLORIZATION)
@@ -1319,10 +1365,8 @@ function(cu_setup_executable_options TARGET_NAME)
 	# Add link libraries
 	target_link_libraries(${TARGET_NAME} PRIVATE ${LINK_LIBRARIES})
 
-	# Setup ASAN options
-	if(CU_ENABLE_ASAN)
-		cu_setup_asan_options(${TARGET_NAME})
-	endif()
+	# Setup sanitizers options
+	cu_setup_sanitizers(${TARGET_NAME})
 
 	# Colorize the output
 	if (NOT CUSEO_NO_OUTPUT_COLORIZATION)
