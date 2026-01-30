@@ -7,6 +7,14 @@
 	},
 	"configurePresets": [
 		{
+			"name": "vs2022",
+			"hidden": true,
+			"generator": "Visual Studio 17 2022",
+			"cacheVariables": {
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "TRUE"
+			}
+		},
+		{
 			"name": "ninja",
 			"hidden": true,
 			"generator": "Ninja",
