@@ -7,7 +7,7 @@
 	},
 	"configurePresets": [
 		{
-			"name": "vs2022",
+			"name": "gen_vs2022",
 			"hidden": true,
 			"generator": "Visual Studio 17 2022",
 			"cacheVariables": {
@@ -15,7 +15,7 @@
 			}
 		},
 		{
-			"name": "ninja",
+			"name": "gen_ninja",
 			"hidden": true,
 			"generator": "Ninja",
 			"cacheVariables": {
@@ -23,7 +23,7 @@
 			}
 		},
 		{
-			"name": "x86",
+			"name": "arch_x86",
 			"hidden": true,
 			"architecture": {
 				"value": "x86",
@@ -31,7 +31,7 @@
 			}
 		},
 		{
-			"name": "x64",
+			"name": "arch_x64",
 			"hidden": true,
 			"architecture": {
 				"value": "x64",
@@ -39,7 +39,7 @@
 			}
 		},
 		{
-			"name": "arm64",
+			"name": "arch_arm64",
 			"hidden": true,
 			"architecture": {
 				"value": "arm64",
@@ -47,7 +47,7 @@
 			}
 		},
 		{
-			"name": "x86_vs",
+			"name": "arch_x86_vs",
 			"hidden": true,
 			"architecture": {
 				"value": "Win32",
@@ -59,7 +59,7 @@
 			}
 		},
 		{
-			"name": "x64_vs",
+			"name": "arch_x64_vs",
 			"hidden": true,
 			"architecture": {
 				"value": "x64",
@@ -71,7 +71,7 @@
 			}
 		},
 		{
-			"name": "arm64_vs",
+			"name": "arch_arm64_vs",
 			"hidden": true,
 			"architecture": {
 				"value": "ARM64",
@@ -83,42 +83,42 @@
 			}
 		},
 		{
-			"name": "x64_macos",
+			"name": "arch_x64_macos",
 			"hidden": true,
 			"cacheVariables": {
 				"CMAKE_OSX_ARCHITECTURES": "x86_64"
 			}
 		},
 		{
-			"name": "arm64_macos",
+			"name": "arch_arm64_macos",
 			"hidden": true,
 			"cacheVariables": {
 				"CMAKE_OSX_ARCHITECTURES": "arm64"
 			}
 		},
 		{
-			"name": "universal_macos",
+			"name": "arch_universal_macos",
 			"hidden": true,
 			"cacheVariables": {
 				"CMAKE_OSX_ARCHITECTURES": "arm64;x86_64"
 			}
 		},
 		{
-			"name": "debug",
+			"name": "config_debug",
 			"hidden": true,
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Debug"
 			}
 		},
 		{
-			"name": "release",
+			"name": "config_release",
 			"hidden": true,
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "Release"
 			}
 		},
 		{
-			"name": "windows",
+			"name": "compiler_msvc",
 			"hidden": true,
 			"toolset": {
 				"value": "v143,host=x64",
@@ -130,9 +130,31 @@
 			},
 			"vendor": {
 				"microsoft.com/VisualStudioSettings/CMake/1.0": {
-					"hostOS": [ "Windows" ]
+					"hostOS": [
+						"Windows"
+					]
 				}
-			},
+			}
+		},
+		{
+			"name": "compiler_clang",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang",
+				"CMAKE_CXX_COMPILER": "clang++"
+			}
+		},
+		{
+			"name": "compiler_gcc",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "gcc",
+				"CMAKE_CXX_COMPILER": "g++"
+			}
+		},
+		{
+			"name": "platform_windows",
+			"hidden": true,
 			"condition": {
 				"type": "equals",
 				"lhs": "${hostSystemName}",
@@ -140,12 +162,8 @@
 			}
 		},
 		{
-			"name": "macos",
+			"name": "platform_macos",
 			"hidden": true,
-			"cacheVariables": {
-				"CMAKE_C_COMPILER": "clang",
-				"CMAKE_CXX_COMPILER": "clang++"
-			},
 			"condition": {
 				"type": "equals",
 				"lhs": "${hostSystemName}",
@@ -153,12 +171,8 @@
 			}
 		},
 		{
-			"name": "linux",
+			"name": "platform_linux",
 			"hidden": true,
-			"cacheVariables": {
-				"CMAKE_C_COMPILER": "gcc",
-				"CMAKE_CXX_COMPILER": "g++"
-			},
 			"condition": {
 				"type": "equals",
 				"lhs": "${hostSystemName}",

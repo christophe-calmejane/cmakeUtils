@@ -6,13 +6,38 @@
 	],
 	"configurePresets": [
 		{
+			"name": "win_x64_vs2022",
+			"inherits": [
+				"project",
+				"platform_windows",
+				"arch_x64_vs",
+				"gen_vs2022"
+			],
+			"displayName": "Windows x64 VS2022",
+			"description": "Windows, x64, VS2022",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
+			"name": "win_arm64_vs2022",
+			"inherits": [
+				"project",
+				"platform_windows",
+				"arch_arm64_vs",
+				"gen_vs2022"
+			],
+			"displayName": "Windows arm64 VS2022",
+			"description": "Windows, arm64, VS2022",
+			"binaryDir": "${sourceDir}/_build_${presetName}"
+		},
+		{
 			"name": "win_x86_ninja_debug",
 			"inherits": [
 				"project",
-				"windows",
-				"x86",
-				"ninja",
-				"debug"
+				"platform_windows",
+				"arch_x86",
+				"compiler_msvc",
+				"gen_ninja",
+				"config_debug"
 			],
 			"displayName": "Windows x86 Debug",
 			"description": "Windows, x86, Ninja, Debug",
@@ -22,10 +47,11 @@
 			"name": "win_x86_ninja_release",
 			"inherits": [
 				"project",
-				"windows",
-				"x86",
-				"ninja",
-				"release"
+				"platform_windows",
+				"arch_x86",
+				"compiler_msvc",
+				"gen_ninja",
+				"config_release"
 			],
 			"displayName": "Windows x86 Release",
 			"description": "Windows, x86, Ninja, Release",
@@ -36,10 +62,11 @@
 			"name": "win_x64_ninja_debug",
 			"inherits": [
 				"project",
-				"windows",
-				"x64",
-				"ninja",
-				"debug"
+				"platform_windows",
+				"arch_x64",
+				"compiler_msvc",
+				"gen_ninja",
+				"config_debug"
 			],
 			"displayName": "Windows x64 Debug",
 			"description": "Windows, x64, Ninja, Debug",
@@ -49,10 +76,11 @@
 			"name": "win_x64_ninja_release",
 			"inherits": [
 				"project",
-				"windows",
-				"x64",
-				"ninja",
-				"release"
+				"platform_windows",
+				"arch_x64",
+				"compiler_msvc",
+				"gen_ninja",
+				"config_release"
 			],
 			"displayName": "Windows x64 Release",
 			"description": "Windows, x64, Ninja, Release",
@@ -63,10 +91,11 @@
 			"name": "macos_x64_ninja_debug",
 			"inherits": [
 				"project",
-				"macos",
-				"x64_macos",
-				"ninja",
-				"debug"
+				"platform_macos",
+				"arch_x64_macos",
+				"compiler_clang",
+				"gen_ninja",
+				"config_debug"
 			],
 			"displayName": "macOS x64 Debug",
 			"description": "macOS, x64, Ninja, Debug",
@@ -76,10 +105,11 @@
 			"name": "macos_x64_ninja_release",
 			"inherits": [
 				"project",
-				"macos",
-				"x64_macos",
-				"ninja",
-				"release"
+				"platform_macos",
+				"arch_x64_macos",
+				"compiler_clang",
+				"gen_ninja",
+				"config_release"
 			],
 			"displayName": "macOS x64 Release",
 			"description": "macOS, x64, Ninja, Release",
@@ -89,10 +119,11 @@
 			"name": "macos_arm64_ninja_debug",
 			"inherits": [
 				"project",
-				"macos",
-				"arm64_macos",
-				"ninja",
-				"debug"
+				"platform_macos",
+				"arch_arm64_macos",
+				"compiler_clang",
+				"gen_ninja",
+				"config_debug"
 			],
 			"displayName": "macOS arm64 Debug",
 			"description": "macOS, arm64, Ninja, Debug",
@@ -102,10 +133,11 @@
 			"name": "macos_arm64_ninja_release",
 			"inherits": [
 				"project",
-				"macos",
-				"arm64_macos",
-				"ninja",
-				"release"
+				"platform_macos",
+				"arch_arm64_macos",
+				"compiler_clang",
+				"gen_ninja",
+				"config_release"
 			],
 			"displayName": "macOS arm64 Release",
 			"description": "macOS, arm64, Ninja, Release",
@@ -115,10 +147,11 @@
 			"name": "macos_universal_ninja_debug",
 			"inherits": [
 				"project",
-				"macos",
-				"universal_macos",
-				"ninja",
-				"debug"
+				"platform_macos",
+				"arch_universal_macos",
+				"compiler_clang",
+				"gen_ninja",
+				"config_debug"
 			],
 			"displayName": "macOS Universal Debug",
 			"description": "macOS, Universal, Ninja, Debug",
@@ -128,10 +161,11 @@
 			"name": "macos_universal_ninja_release",
 			"inherits": [
 				"project",
-				"macos",
-				"universal_macos",
-				"ninja",
-				"release"
+				"platform_macos",
+				"arch_universal_macos",
+				"compiler_clang",
+				"gen_ninja",
+				"config_release"
 			],
 			"displayName": "macOS Universal Release",
 			"description": "macOS, Universal, Ninja, Release",
@@ -141,10 +175,11 @@
 			"name": "linux_x64_ninja_debug",
 			"inherits": [
 				"project",
-				"linux",
-				"x64",
-				"ninja",
-				"debug"
+				"platform_linux",
+				"arch_x64",
+				"compiler_gcc",
+				"gen_ninja",
+				"config_debug"
 			],
 			"displayName": "Linux x64 Debug",
 			"description": "Linux, x64, Ninja, Debug",
@@ -154,18 +189,57 @@
 			"name": "linux_x64_ninja_release",
 			"inherits": [
 				"project",
-				"linux",
-				"x64",
-				"ninja",
-				"release"
+				"platform_linux",
+				"arch_x64",
+				"compiler_gcc",
+				"gen_ninja",
+				"config_release"
 			],
 			"displayName": "Linux x64 Release",
 			"description": "Linux, x64, Ninja, Release",
 			"binaryDir": "${sourceDir}/_build_${presetName}",
 			"installDir": "${sourceDir}/_build_${presetName}/Install"
+		},
+		{
+			"name": "linux_arm64_ninja_debug",
+			"inherits": [
+				"project",
+				"platform_linux",
+				"arch_arm64",
+				"compiler_gcc",
+				"gen_ninja",
+				"config_debug"
+			],
+			"displayName": "Linux arm64 Debug",
+			"description": "Linux, arm64, Ninja, Debug",
+			"binaryDir": "${sourceDir}/_build_${presetName}",
+			"installDir": "${sourceDir}/_build_${presetName}/Install"
+		},
+		{
+			"name": "linux_arm64_ninja_release",
+			"inherits": [
+				"project",
+				"platform_linux",
+				"arch_arm64",
+				"compiler_gcc",
+				"gen_ninja",
+				"config_release"
+			],
+			"displayName": "Linux arm64 Release",
+			"description": "Linux, arm64, Ninja, Release",
+			"binaryDir": "${sourceDir}/_build_${presetName}",
+			"installDir": "${sourceDir}/_build_${presetName}/Install"
 		}
 	],
 	"buildPresets": [
+		{
+			"name": "win_x64_vs2022",
+			"configurePreset": "win_x64_vs2022"
+		},
+		{
+			"name": "win_arm64_vs2022",
+			"configurePreset": "win_arm64_vs2022"
+		},
 		{
 			"name": "win_x86_ninja_debug",
 			"configurePreset": "win_x86_ninja_debug"
@@ -213,6 +287,14 @@
 		{
 			"name": "linux_x64_ninja_release",
 			"configurePreset": "linux_x64_ninja_release"
+		},
+		{
+			"name": "linux_arm64_ninja_debug",
+			"configurePreset": "linux_arm64_ninja_debug"
+		},
+		{
+			"name": "linux_arm64_ninja_release",
+			"configurePreset": "linux_arm64_ninja_release"
 		}
 	],
 	"packagePresets": [
@@ -227,6 +309,10 @@
 		{
 			"name": "linux-package",
 			"configurePreset": "linux_x64_ninja_release"
+		},
+		{
+			"name": "linux-arm64-package",
+			"configurePreset": "linux_arm64_ninja_release"
 		}
 	]
 }
