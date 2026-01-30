@@ -47,6 +47,42 @@
 			}
 		},
 		{
+			"name": "x86_vs",
+			"hidden": true,
+			"architecture": {
+				"value": "Win32",
+				"strategy": "set"
+			},
+			"toolset": {
+				"value": "v143,host=x64",
+				"strategy": "set"
+			}
+		},
+		{
+			"name": "x64_vs",
+			"hidden": true,
+			"architecture": {
+				"value": "x64",
+				"strategy": "set"
+			},
+			"toolset": {
+				"value": "v143,host=x64",
+				"strategy": "set"
+			}
+		},
+		{
+			"name": "arm64_vs",
+			"hidden": true,
+			"architecture": {
+				"value": "ARM64",
+				"strategy": "set"
+			},
+			"toolset": {
+				"value": "v143,host=x64",
+				"strategy": "set"
+			}
+		},
+		{
 			"name": "x64_macos",
 			"hidden": true,
 			"cacheVariables": {
