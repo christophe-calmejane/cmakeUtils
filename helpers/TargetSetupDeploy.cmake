@@ -82,6 +82,7 @@ endfunction()
 #  - "QML_DIR <path>" => override default QML_DIR folder
 #  - "DEPLOY_DESTINATION <absolute path>" => If defined, absolute path to the folder where the runtime dependencies will be deployed (not installed) instead of using the default one (returned by cu_get_binary_runtime_path)
 #  - "INSTALL_DESTINATION <relative path>" => Relative path that was given to the RUNTIME DESTINATION option of the install() rule for TARGET_NAME (defaults to 'bin')
+#  - "SIGN_COMMAND <signing command>" => signing command to use
 #  - "SIGNTOOL_OPTIONS <windows signtool options>..." => list of options to pass to windows signtool utility (signing will be done on all runtime dependencies if this is specified)
 #  - "SIGNTOOL_AGAIN_OPTIONS <windows signtool options>..." => list of options to pass to a secondary signtool call (to add another signature)
 #  - "CODESIGN_OPTIONS <macOS codesign options>..." => list of options to pass to macOS codesign utility (signing will be done on all runtime dependencies if this is specified)
@@ -104,7 +105,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${SANITIZED_TARGET_NAME}.cmake)
 
 	# Parse optional arguments
-	cmake_parse_arguments(CUDRT "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;DEPLOY_DESTINATION;CODESIGN_IDENTITY;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
+	cmake_parse_arguments(CUDRT "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;DEPLOY_DESTINATION;SIGN_COMMAND;CODESIGN_IDENTITY;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
 
 	if(NOT CUDRT_INSTALL_DESTINATION)
 		set(CUDRT_INSTALL_DESTINATION "bin")
@@ -366,6 +367,10 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	# If code signing is requested
 	if(CUDRT_SIGN)
+		# SIGN_COMMAND is required if SIGN is specified
+		if(NOT CUDRT_SIGN_COMMAND)
+			message(FATAL_ERROR "SIGN_COMMAND option is required when SIGN is specified")
+		endif()
 		# Expand options lists
 		string(REPLACE ";" " " SIGNTOOL_OPTIONS "${CUDRT_SIGNTOOL_OPTIONS}")
 		string(REPLACE ";" " " SIGNTOOL_AGAIN_OPTIONS "${CUDRT_SIGNTOOL_AGAIN_OPTIONS}")
@@ -374,10 +379,10 @@ function(cu_deploy_runtime_target TARGET_NAME)
 		# Codesigning code for both easy-debug and install scripts
 		string(CONCAT CODESIGNING_CODE
 			"foreach(DEP \${BINARIES_TO_SIGN})\n"
-			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
+			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGN_COMMAND ${CUDRT_SIGN_COMMAND} SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
 			"endforeach()\n"
 			"foreach(DEP \${COPIED_FILES})\n"
-			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
+			"	cu_sign_binary(BINARY_PATH \"\${DEP}\" SIGN_COMMAND ${CUDRT_SIGN_COMMAND} SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
 			"endforeach()\n"
 		)
 
@@ -403,7 +408,7 @@ function(cu_deploy_runtime_target TARGET_NAME)
 					endif()
 					string(APPEND INSTALL_RESIGN_CODE
 						"message(STATUS \"Code re-signing ${TARGET_NAME}...\")\n"
-						"cu_sign_binary(BINARY_PATH \"${resign_binary_path}\" SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
+						"cu_sign_binary(BINARY_PATH \"${resign_binary_path}\" SIGN_COMMAND ${CUDRT_SIGN_COMMAND} SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} SIGNTOOL_AGAIN_OPTIONS ${SIGNTOOL_AGAIN_OPTIONS} CODESIGN_OPTIONS ${CODESIGN_OPTIONS} CODESIGN_IDENTITY ${CUDRT_CODESIGN_IDENTITY})\n"
 						"message(STATUS \"Done\")\n"
 					)
 					install(CODE
