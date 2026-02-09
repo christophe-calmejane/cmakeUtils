@@ -17,6 +17,7 @@
 #   CU_PROJECT_CONTACT (Defautls to '${LOWER:PROJECT_NAME}@${LOWER:CU_COMPANY_NAME}.com'): Contact email of your project
 #   CU_COPYRIGHT_HOLDER (Defaults to '${CU_COMPANY_NAME}'): Copyright holder of your project
 #   CU_BETA_TAG (Defaults to '-beta'): Tag to append to the version number to indicate a beta version
+#   [windows] CU_SIGNING_TOOL: Tool to use for signing binaries (signtool or azuresigntool, defaults to signtool)
 
 # cu_setup_project method
 #  This method is used to setup a project that can contain one or more targets. Some variables can be overridden before the call, otherwise the global variables are used.
@@ -265,7 +266,26 @@ endfunction()
 
 #
 function(cu_private_get_sign_command_options OUT_VAR)
-	set(${OUT_VAR} SIGNTOOL_OPTIONS ${CU_SIGNTOOL_OPTIONS} /d \"${CU_COMPANY_NAME} ${PROJECT_NAME}\" CODESIGN_OPTIONS --timestamp --deep --strict --force --options=runtime CODESIGN_IDENTITY \"${CU_BINARY_SIGNING_IDENTITY}\" PARENT_SCOPE)
+	if(WIN32)
+		set(SIGN_TOOL "signtool")
+		if(DEFINED CU_SIGNING_TOOL)
+			if(CU_SIGNING_TOOL STREQUAL "azuresigntool")
+				set(SIGN_TOOL "azuresigntool")
+			elseif(CU_SIGNING_TOOL STREQUAL "signtool")
+				set(SIGN_TOOL "signtool")
+			else()
+				message(FATAL_ERROR "Unknown signing tool specified in CU_SIGNING_TOOL: ${CU_SIGNING_TOOL}")
+			endif()
+		endif()
+	elseif(CMAKE_HOST_APPLE)
+		# On macOS, we use the built-in codesign tool
+		set(SIGN_TOOL "codesign")
+	else()
+		message(FATAL_ERROR "Code signing is only supported on Windows and macOS")
+		set(SIGN_TOOL "none")
+	endif()
+
+	set(${OUT_VAR} SIGN_COMMAND \"${SIGN_TOOL}\" SIGNTOOL_OPTIONS sign ${CU_SIGNTOOL_OPTIONS} /d \"${CU_COMPANY_NAME} ${PROJECT_NAME}\" CODESIGN_OPTIONS --timestamp --deep --strict --force --options=runtime CODESIGN_IDENTITY \"${CU_BINARY_SIGNING_IDENTITY}\" PARENT_SCOPE)
 endfunction()
 
 #
