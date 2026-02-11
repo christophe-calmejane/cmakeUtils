@@ -1487,7 +1487,9 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD;QML_DIR" "" ${ARGN})
 
 	# Get signing options
-	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
+	if(SDR_SIGN)
+		cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
+	endif()
 
 	# Get additional folders for runtime deployment
 	get_property(depSearchDirsDebug GLOBAL PROPERTY CU_DEPLOY_RUNTIME_SEARCH_DIRS_DEBUG)
