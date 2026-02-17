@@ -1054,6 +1054,12 @@ function(cu_setup_library_options TARGET_NAME)
 		# Set WIN32 version since we want to target WinVista minimum
 		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0600)
 
+		# Ensure MSVC correctly reports the C++ standard version via __cplusplus. Without this flag, MSVC always defines __cplusplus as 199711L regardless of the actual standard
+		target_compile_options(${TARGET_NAME} PRIVATE /Zc:__cplusplus)
+
+		# Be less permissive with c++ standard
+		# target_compile_options(${TARGET_NAME} PRIVATE /permissive-) # TODO: We will enable this in the future, after some testing period.
+
 		if(NOT CUSLO_UNICODE)
 			# Force multi-byte character strings
 			if(COMMAND qt6_disable_unicode_defines)
@@ -1364,6 +1370,12 @@ function(cu_setup_executable_options TARGET_NAME)
 	if(MSVC)
 		# Set WIN32 version since we want to target WinVista minimum
 		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0600)
+
+		# Ensure MSVC correctly reports the C++ standard version via __cplusplus. Without this flag, MSVC always defines __cplusplus as 199711L regardless of the actual standard
+		target_compile_options(${TARGET_NAME} PRIVATE /Zc:__cplusplus)
+
+		# Be less permissive with c++ standard
+		# target_compile_options(${TARGET_NAME} PRIVATE /permissive-) # TODO: We will enable this in the future, after some testing period.
 
 		if(NOT CUSEO_UNICODE)
 			# Force multi-byte character strings

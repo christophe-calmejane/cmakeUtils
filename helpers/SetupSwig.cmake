@@ -181,6 +181,13 @@ function(cu_setup_swig_target)
 			# Link with specified target
 			swig_link_libraries(${SWIG_TARGET_NAME} PRIVATE ${CUSST_TARGET_NAME})
 
+			# Ensure MSVC correctly reports the C++ standard version via __cplusplus
+			# Without this flag, MSVC always defines __cplusplus as 199711L regardless of the actual standard,
+			# causing SWIG-generated code to skip C++11+ features like std::move (SWIG_STD_MOVE)
+			if(MSVC)
+				target_compile_options(${SWIG_TARGET_NAME} PRIVATE /Zc:__cplusplus)
+			endif()
+
 			# If building as a framework, set the framework properties
 			if(BUILD_AS_MACOSX_FRAMEWORK)
 				set_target_properties(${SWIG_TARGET_NAME} PROPERTIES
