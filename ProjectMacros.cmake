@@ -1062,8 +1062,8 @@ function(cu_setup_library_options TARGET_NAME)
 		# Ensure MSVC correctly reports the C++ standard version via __cplusplus. Without this flag, MSVC always defines __cplusplus as 199711L regardless of the actual standard
 		target_compile_options(${TARGET_NAME} PRIVATE /Zc:__cplusplus)
 
-		# Be less permissive with c++ standard
-		# target_compile_options(${TARGET_NAME} PRIVATE /permissive-) # TODO: We will enable this in the future, after some testing period.
+		# Be less permissive (actually more compliant) with c++ standard
+		target_compile_options(${TARGET_NAME} PRIVATE /permissive-)
 
 		if(NOT CUSLO_UNICODE)
 			# Force multi-byte character strings
@@ -1379,8 +1379,8 @@ function(cu_setup_executable_options TARGET_NAME)
 		# Ensure MSVC correctly reports the C++ standard version via __cplusplus. Without this flag, MSVC always defines __cplusplus as 199711L regardless of the actual standard
 		target_compile_options(${TARGET_NAME} PRIVATE /Zc:__cplusplus)
 
-		# Be less permissive with c++ standard
-		# target_compile_options(${TARGET_NAME} PRIVATE /permissive-) # TODO: We will enable this in the future, after some testing period.
+		# Be less permissive (actually more compliant) with c++ standard
+		target_compile_options(${TARGET_NAME} PRIVATE /permissive-)
 
 		if(NOT CUSEO_UNICODE)
 			# Force multi-byte character strings
