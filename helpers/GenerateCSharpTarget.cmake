@@ -204,7 +204,7 @@ function(cu_generate_csharp_target)
 	# Add a custom target to build the project
 	add_custom_target(
 		${CUGCST_TARGET_NAME}-csharp ALL
-		COMMAND dotnet publish --property:PublishDir=. -c ${CMAKE_BUILD_TYPE}
+		COMMAND dotnet publish "${CMAKE_CURRENT_BINARY_DIR}/${CSPROJ_FILE_NAME}.csproj" --property:PublishDir=. -c ${CMAKE_BUILD_TYPE}
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS ${SLN_FILE_NAME}Sln
 	)
