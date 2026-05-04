@@ -265,7 +265,7 @@ function(cu_private_set_default_warning_flags TARGET_NAME)
 endfunction()
 
 #
-function(cu_private_get_sign_command_options OUT_VAR)
+function(cu_get_sign_command_options OUT_VAR)
 	if(WIN32)
 		set(SIGN_TOOL "signtool")
 		set(SIGNING_DESCRIPTION_SELECTOR "/d")
@@ -293,6 +293,93 @@ function(cu_private_get_sign_command_options OUT_VAR)
 	set(${OUT_VAR} SIGN_COMMAND \"${SIGN_TOOL}\" SIGNTOOL_OPTIONS sign ${CU_SIGNTOOL_OPTIONS} ${SIGNING_DESCRIPTION_SELECTOR} "\"${CU_COMPANY_NAME} ${PROJECT_NAME}\"" CODESIGN_OPTIONS --timestamp --deep --strict --force --options=runtime CODESIGN_IDENTITY \"${CU_BINARY_SIGNING_IDENTITY}\" PARENT_SCOPE)
 endfunction()
 
+# Extract the codesign identity from a provisioning profile by matching its DeveloperCertificates
+# against the available codesigning identities in the keychain (macOS only).
+# Sets ${OUT_VAR} in PARENT_SCOPE to the SHA-1 hash of the first matching identity, or empty if none found.
+# Requires: security, python3 (both available by default on macOS).
+function(cu_get_identity_from_profile PROFILE_PATH OUT_VAR)
+	if(NOT CMAKE_HOST_APPLE)
+		message(WARNING "cu_get_identity_from_profile is only supported on macOS")
+		set(${OUT_VAR} "" PARENT_SCOPE)
+		return()
+	endif()
+
+	# Decode the provisioning profile and extract certificate SHA-1 hashes
+	execute_process(
+		COMMAND bash -c "security cms -D -i '${PROFILE_PATH}' 2>/dev/null | python3 -c \"\nimport plistlib, sys, hashlib\nplist = plistlib.loads(sys.stdin.buffer.read())\nfor cert in plist.get('DeveloperCertificates', []):\n    print(hashlib.sha1(cert).hexdigest().upper())\n\""
+		OUTPUT_VARIABLE PROFILE_CERT_HASHES
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		ERROR_QUIET
+		RESULT_VARIABLE RESULT
+	)
+	if(NOT RESULT EQUAL 0 OR NOT PROFILE_CERT_HASHES)
+		message(WARNING "cu_get_identity_from_profile: Failed to extract certificates from profile: ${PROFILE_PATH}")
+		set(${OUT_VAR} "" PARENT_SCOPE)
+		return()
+	endif()
+
+	# Get available codesigning identities from the keychain
+	execute_process(
+		COMMAND security find-identity -v -p codesigning
+		OUTPUT_VARIABLE KEYCHAIN_IDENTITIES
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		ERROR_QUIET
+		RESULT_VARIABLE RESULT
+	)
+	if(NOT RESULT EQUAL 0)
+		message(WARNING "cu_get_identity_from_profile: Failed to query keychain for codesigning identities")
+		set(${OUT_VAR} "" PARENT_SCOPE)
+		return()
+	endif()
+
+	# Match profile certificate hashes against keychain identities
+	string(REPLACE "\n" ";" CERT_HASH_LIST "${PROFILE_CERT_HASHES}")
+	foreach(HASH IN LISTS CERT_HASH_LIST)
+		string(REGEX MATCH "${HASH} \"[^\"]+\"" MATCH_LINE "${KEYCHAIN_IDENTITIES}")
+		if(MATCH_LINE)
+			string(REGEX MATCH "\"[^\"]+\"" IDENTITY_NAME "${MATCH_LINE}")
+			string(REPLACE "\"" "" IDENTITY_NAME "${IDENTITY_NAME}")
+			message(STATUS "Auto-detected signing identity from profile: ${IDENTITY_NAME} (${HASH})")
+			set(${OUT_VAR} "${HASH}" PARENT_SCOPE)
+			return()
+		endif()
+	endforeach()
+
+	message(WARNING "cu_get_identity_from_profile: No keychain identity matches the certificates in profile: ${PROFILE_PATH}")
+	set(${OUT_VAR} "" PARENT_SCOPE)
+endfunction()
+
+# Get sign command options for a specific target, with support for per-target entitlements and signing identity overrides.
+# This function first checks for target-specific properties, then falls back to the global options.
+# Supported target properties (set via set_target_properties):
+#  - CU_CODESIGN_ENTITLEMENTS: Path to an entitlements plist to embed in the codesign signature (macOS only).
+#  - CU_CODESIGN_IDENTITY: Override the codesign identity for this specific target (macOS only).
+function(cu_get_sign_command_options_for_target TARGET_NAME OUT_VAR)
+	# Start with the global sign command options
+	cu_get_sign_command_options(_BASE_OPTIONS)
+
+	if(APPLE)
+		# Check for per-target entitlements
+		get_target_property(_ENTITLEMENTS ${TARGET_NAME} CU_CODESIGN_ENTITLEMENTS)
+		if(_ENTITLEMENTS)
+			# Inject --entitlements right after the CODESIGN_OPTIONS keyword in the options list
+			string(REPLACE "CODESIGN_OPTIONS" "CODESIGN_OPTIONS --entitlements;\"${_ENTITLEMENTS}\"" _BASE_OPTIONS "${_BASE_OPTIONS}")
+		endif()
+
+		# Check for per-target identity override
+		get_target_property(_IDENTITY ${TARGET_NAME} CU_CODESIGN_IDENTITY)
+		if(_IDENTITY)
+			# CODESIGN_IDENTITY is always the last key in the options list, so replace the last element
+			list(LENGTH _BASE_OPTIONS _len)
+			math(EXPR _last "${_len} - 1")
+			list(REMOVE_AT _BASE_OPTIONS ${_last})
+			list(APPEND _BASE_OPTIONS "\"${_IDENTITY}\"")
+		endif()
+	endif()
+
+	set(${OUT_VAR} ${_BASE_OPTIONS} PARENT_SCOPE)
+endfunction()
+
 #
 function(cu_private_get_target_resource_folder_name TARGET_NAME OUT_VAR)
 	cu_is_macos_bundle(${TARGET_NAME} isBundle)
@@ -317,8 +404,8 @@ endfunction()
 # Sign a binary after build, using POST_BUILD rules
 # BINARY_NAME is only used to generate a unique cmake file
 function(cu_private_sign_postbuild_binary TARGET_NAME BINARY_PATH BINARY_NAME)
-	# Get signing options
-	cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
+	# Get signing options (global, not per-target: this signs dependency binaries, not the target itself)
+	cu_get_sign_command_options(SIGN_COMMAND_OPTIONS)
 
 	# Expand options to individual parameters
 	string(REPLACE ";" " " SIGN_COMMAND_OPTIONS "${SIGN_COMMAND_OPTIONS}")
@@ -356,7 +443,7 @@ function(cu_private_sign_installed_binary BINARY_PATH)
 	# Xcode already forces automatic signing, so only sign for the other cases
 	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
 		# Get signing options
-		cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
+		cu_get_sign_command_options(SIGN_COMMAND_OPTIONS)
 
 		# Expand options to individual parameters
 		string(REPLACE ";" " " SIGN_COMMAND_OPTIONS "${SIGN_COMMAND_OPTIONS}")
@@ -382,8 +469,8 @@ function(cu_private_setup_signing_command TARGET_NAME)
 
 	# Xcode already forces automatic signing, so only sign for the other cases
 	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
-		# Get signing options
-		cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
+		# Get signing options (with per-target entitlements/identity support)
+		cu_get_sign_command_options_for_target(${TARGET_NAME} SIGN_COMMAND_OPTIONS)
 
 		# Expand options to individual parameters
 		string(REPLACE ";" " " SIGN_COMMAND_OPTIONS "${SIGN_COMMAND_OPTIONS}")
@@ -1491,6 +1578,9 @@ endfunction()
 #  - "QML_DIR <qml directory>" -> directory containing the qml source files of the target (defaults to ".")
 #  - "EXPORT_TARGET" -> Export cmake target
 #  - "ATTACH_TO_TARGET_POSTBUILD <target>" -> Attach deploy actions to the specified target instead of the target itself (required for IMPORTED targets)
+#  - "CODESIGN_ENTITLEMENTS <path>" -> [macOS] Path to an entitlements plist to embed in the codesign signature
+#  - "CODESIGN_IDENTITY <identity>" -> [macOS] Override the codesign identity for this target (SHA-1 hash or identity name)
+#  - "PROVISION_PROFILE <path>" -> [macOS] Provisioning profile to embed in the .app bundle (must be a macOS bundle target). Auto-detects the signing identity from the profile if CODESIGN_IDENTITY is not set
 function(cu_setup_deploy_runtime TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
@@ -1501,11 +1591,41 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	endif()
 
 	# Parse optional arguments
-	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD;QML_DIR" "" ${ARGN})
+	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD;QML_DIR;CODESIGN_ENTITLEMENTS;CODESIGN_IDENTITY;PROVISION_PROFILE" "" ${ARGN})
 
 	# Get signing options
 	if(SDR_SIGN)
-		cu_private_get_sign_command_options(SIGN_COMMAND_OPTIONS)
+		# Handle macOS codesign entitlements, identity, and provisioning profile
+		if(APPLE)
+			# Set per-target entitlements
+			if(SDR_CODESIGN_ENTITLEMENTS)
+				set_target_properties(${TARGET_NAME} PROPERTIES CU_CODESIGN_ENTITLEMENTS "${SDR_CODESIGN_ENTITLEMENTS}")
+			endif()
+
+			if(SDR_PROVISION_PROFILE)
+				# Validate that the provisioning profile file exists
+				if(NOT EXISTS "${SDR_PROVISION_PROFILE}")
+					message(FATAL_ERROR "[${TARGET_NAME}] PROVISION_PROFILE is set but the file does not exist: ${SDR_PROVISION_PROFILE}")
+				endif()
+
+				# Auto-detect signing identity from the profile if not explicitly provided
+				if(NOT SDR_CODESIGN_IDENTITY)
+					cu_get_identity_from_profile("${SDR_PROVISION_PROFILE}" SDR_CODESIGN_IDENTITY)
+				endif()
+			elseif(SDR_CODESIGN_ENTITLEMENTS)
+				# Entitlements without profile: print manual re-signing instructions
+				message(STATUS "[${TARGET_NAME}] No provisioning profile configured. To use restricted entitlements, manually embed a profile and re-sign:\n"
+					"  cp /path/to/profile.provisionprofile ${TARGET_NAME}.app/Contents/embedded.provisionprofile\n"
+					"  codesign --force --sign <IDENTITY_MATCHING_PROFILE> --entitlements ${SDR_CODESIGN_ENTITLEMENTS} --options runtime ${TARGET_NAME}.app")
+			endif()
+
+			# Set per-target signing identity override
+			if(SDR_CODESIGN_IDENTITY)
+				set_target_properties(${TARGET_NAME} PROPERTIES CU_CODESIGN_IDENTITY "${SDR_CODESIGN_IDENTITY}")
+			endif()
+		endif()
+
+		cu_get_sign_command_options(SIGN_COMMAND_OPTIONS)
 	endif()
 
 	# Get additional folders for runtime deployment
@@ -1547,6 +1667,20 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 
 	# Sign the binary during post build if requested (but not for imported targets as they are already built)
 	if(SDR_SIGN AND NOT ${targetImported})
+		# Embed the provisioning profile BEFORE signing so it is sealed into the code signature
+		# (POST_BUILD commands execute in the order they are added)
+		if(APPLE AND SDR_PROVISION_PROFILE)
+			cu_is_macos_bundle(${TARGET_NAME} _isBundle)
+			if(_isBundle)
+				add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E copy "${SDR_PROVISION_PROFILE}" "$<TARGET_BUNDLE_DIR:${TARGET_NAME}>/Contents/embedded.provisionprofile"
+					COMMENT "Embedding provisioning profile into ${TARGET_NAME}"
+					VERBATIM
+				)
+			else()
+				message(WARNING "[${TARGET_NAME}] PROVISION_PROFILE can only be embedded in macOS bundles, ignoring")
+			endif()
+		endif()
 		cu_private_setup_signing_command(${TARGET_NAME})
 	endif()
 
