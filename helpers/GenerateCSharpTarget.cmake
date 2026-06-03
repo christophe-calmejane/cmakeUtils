@@ -189,7 +189,7 @@ function(cu_generate_csharp_target)
 	add_custom_command(
 		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${SLN_FILE_NAME}.sln"
 		COMMAND ${CMAKE_COMMAND} -E rm -f "${CMAKE_CURRENT_BINARY_DIR}/${SLN_FILE_NAME}.sln"
-		COMMAND dotnet new sln --name ${SLN_FILE_NAME}
+		COMMAND dotnet new sln --name ${SLN_FILE_NAME} --force
 		COMMAND dotnet sln add "${CMAKE_CURRENT_BINARY_DIR}/${CSPROJ_FILE_NAME}.csproj"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 		DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${CSPROJ_FILE_NAME}.csproj" ${CUGCST_ADDITIONAL_DEPENDENCIES}
