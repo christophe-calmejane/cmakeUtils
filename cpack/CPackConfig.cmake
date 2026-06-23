@@ -91,6 +91,7 @@ endmacro()
 
 ###
 # Adds a file association with an installed binary
+# Writes registry entries under SHCTX (which is HKLM for all-users installs, HKCU for per-user installs), so it works in both admin-only and MultiUser modes.
 # Example: add_installer_file_association("cubin" "MyProg.cubin" "CU Binary File" "bin/MyRes.dll,2" "bin/MyProg.exe")
 # This will add the extension ".cubin" to the system, showing the 2nd icon from the binary found in installed path/bin/MyRes.dll, and run the binary found in installed path/bin/MyProg.exe with the file as parameter
 function(add_installer_file_association EXTENSION_NAME EXTENSION_CLASS EXTENSION_DESCRIPTION INSTALLED_RELATIVE_ICON_PATH INSTALLED_RELATIVE_BINARY_PATH)
@@ -101,18 +102,18 @@ function(add_installer_file_association EXTENSION_NAME EXTENSION_CLASS EXTENSION
 	# Add extra install commands
 	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}\n\
 		; Associate the files for ${EXTENSION_CLASS}\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\" \\\"\\\" \\\"${EXTENSION_DESCRIPTION}\\\"\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\DefaultIcon\\\" \\\"\\\" \\\"$INSTDIR\\\\${RELATIVE_ICON_PATH}\\\"\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\shell\\\\open\\\" \\\"FriendlyAppName\\\" \\\"${CU_NAME_AND_VERSION}\\\"\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\shell\\\\open\\\\command\\\" \\\"\\\" '\\\"$INSTDIR\\\\${RELATIVE_BINARY_PATH}\\\" \\\"%1\\\"'\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\.${EXTENSION_NAME}\\\" \\\"\\\" \\\"${EXTENSION_CLASS}\\\"\n\
-		WriteRegStr HKLM \\\"Software\\\\Classes\\\\.${EXTENSION_NAME}\\\\OpenWithProgIds\\\" \\\"${EXTENSION_CLASS}\\\" \\\"\\\"\n"
+		WriteRegStr SHCTX \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\" \\\"\\\" \\\"${EXTENSION_DESCRIPTION}\\\"\n\
+		WriteRegStr SHCTX \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\DefaultIcon\\\" \\\"\\\" \\\"$INSTDIR\\\\${RELATIVE_ICON_PATH}\\\"\n\
+		WriteRegStr SHCTX \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\shell\\\\open\\\" \\\"FriendlyAppName\\\" \\\"${CU_NAME_AND_VERSION}\\\"\n\
+		WriteRegStr SHCTX \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\\shell\\\\open\\\\command\\\" \\\"\\\" '\\\"$INSTDIR\\\\${RELATIVE_BINARY_PATH}\\\" \\\"%1\\\"'\n\
+		WriteRegStr SHCTX \\\"Software\\\\Classes\\\\.${EXTENSION_NAME}\\\" \\\"\\\" \\\"${EXTENSION_CLASS}\\\"\n\
+		WriteRegStr SHCTX \\\"Software\\\\Classes\\\\.${EXTENSION_NAME}\\\\OpenWithProgIds\\\" \\\"${EXTENSION_CLASS}\\\" \\\"\\\"\n"
 	PARENT_SCOPE)
 
 	# Add extra uninstall commands
 	set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "${CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS}\n\
 		; Dissociate the files from ${EXTENSION_CLASS}\n\
-		DeleteRegKey HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\"\n"
+		DeleteRegKey SHCTX \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\"\n"
 	PARENT_SCOPE)
 endfunction()
 
@@ -125,7 +126,7 @@ function(add_installer_file_unassociation EXTENSION_NAME EXTENSION_CLASS)
   # Add extra install commands
 	set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}\n\
 		; Dissociate the files from ${EXTENSION_CLASS}\n\
-		DeleteRegKey HKLM \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\"\n"
+		DeleteRegKey SHCTX \\\"Software\\\\Classes\\\\${EXTENSION_CLASS}\\\"\n"
 	PARENT_SCOPE)
 endfunction()
 
@@ -302,7 +303,11 @@ else()
 		endif()
 
 		if(NOT EXISTS "${CU_INSTALL_NSIS_WELCOME_FILE_PATH}")
-			message(FATAL_ERROR "Speficied ico file in CU_INSTALL_NSIS_WELCOME_FILE_PATH does not exist: ${CU_INSTALL_NSIS_WELCOME_FILE_PATH}")
+			message(FATAL_ERROR "Speficied welcome file in CU_INSTALL_NSIS_WELCOME_FILE_PATH does not exist: ${CU_INSTALL_NSIS_WELCOME_FILE_PATH}")
+		endif()
+
+		if(NOT DEFINED CPACK_CU_NSIS_MULTIUSER_ENABLED OR NOT (CPACK_CU_NSIS_MULTIUSER_ENABLED STREQUAL "0" OR CPACK_CU_NSIS_MULTIUSER_ENABLED STREQUAL "1"))
+			message(FATAL_ERROR "CPACK_CU_NSIS_MULTIUSER_ENABLED must be defined to 0 or 1 before including CPackConfig.cmake")
 		endif()
 
 		set(CPACK_GENERATOR NSIS)
