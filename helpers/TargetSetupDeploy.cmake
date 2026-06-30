@@ -136,30 +136,34 @@ function(cu_deploy_runtime_target TARGET_NAME)
 	set(INSTALL_INIT_CODE "")
 	if(CUDRT_DEP_SEARCH_DIRS_DEBUG)
 		foreach(DEP_SEARCH_DIR ${CUDRT_DEP_SEARCH_DIRS_DEBUG})
-			string(APPEND DEPLOY_INIT_CODE
-				"if(\"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
-				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
-				"endif()\n"
-			)
-			string(APPEND INSTALL_INIT_CODE
-				"if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
-				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
-				"endif()\n"
-			)
+			if(EXISTS ${DEP_SEARCH_DIR})
+				string(APPEND DEPLOY_INIT_CODE
+					"if(\"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+					"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+					"endif()\n"
+				)
+				string(APPEND INSTALL_INIT_CODE
+					"if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+					"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+					"endif()\n"
+				)
+			endif()
 		endforeach()
 	endif()
 	if(CUDRT_DEP_SEARCH_DIRS_OPTIMIZED)
 		foreach(DEP_SEARCH_DIR ${CUDRT_DEP_SEARCH_DIRS_OPTIMIZED})
-			string(APPEND DEPLOY_INIT_CODE
-				"if(NOT \"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
-				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
-				"endif()\n"
-			)
-			string(APPEND INSTALL_INIT_CODE
-				"if(NOT \"\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
-				"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
-				"endif()\n"
-			)
+			if(EXISTS ${DEP_SEARCH_DIR})
+				string(APPEND DEPLOY_INIT_CODE
+					"if(NOT \"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+					"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+					"endif()\n"
+				)
+				string(APPEND INSTALL_INIT_CODE
+					"if(NOT \"\${CMAKE_INSTALL_CONFIG_NAME}\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+					"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
+					"endif()\n"
+				)
+			endif()
 		endforeach()
 	endif()
 
