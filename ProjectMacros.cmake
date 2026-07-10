@@ -1574,6 +1574,7 @@ endfunction()
 #  - "NO_DEPENDENCIES" -> Do not copy/install/sign dependencies
 #  - "BUNDLE_DIR <install directory>" -> directory where to install BUNDLE file type (defaults to ".")
 #  - "RUNTIME_DIR <install directory>" -> directory where to install RUNTIME file type (defaults to "bin")
+#  - "MODULE_DIR <install directory>" -> directory where to install MODULE file type (defaults to "bin")
 #  - "QT_MAJOR_VERSION <version>" -> Qt major version (defaults to 5)
 #  - "QML_DIR <qml directory>" -> directory containing the qml source files of the target (defaults to ".")
 #  - "EXPORT_TARGET" -> Export cmake target
@@ -1581,17 +1582,19 @@ endfunction()
 #  - "CODESIGN_ENTITLEMENTS <path>" -> [macOS] Path to an entitlements plist to embed in the codesign signature
 #  - "CODESIGN_IDENTITY <identity>" -> [macOS] Override the codesign identity for this target (SHA-1 hash or identity name)
 #  - "PROVISION_PROFILE <path>" -> [macOS] Provisioning profile to embed in the .app bundle (must be a macOS bundle target). Auto-detects the signing identity from the profile if CODESIGN_IDENTITY is not set
+#  - "SCRIPT_POSTFIX <string>" => Append a postfix to the generated script name (useful for multiple calls to this function for the same target)
+#  - "DEPLOY_DESTINATION <absolute path>" => If defined, absolute path to the folder where the runtime dependencies will be deployed (not installed) instead of using the default one (returned by cu_get_binary_runtime_path)
 function(cu_setup_deploy_runtime TARGET_NAME)
 	# Get target type for specific options
 	get_target_property(targetType ${TARGET_NAME} TYPE)
 
-	# Only for executables
-	if(NOT ${targetType} STREQUAL "EXECUTABLE")
+	# Only for executables/modules
+	if(NOT ${targetType} STREQUAL "EXECUTABLE" AND NOT ${targetType} STREQUAL "MODULE_LIBRARY")
 		message(FATAL_ERROR "Unsupported target type for cu_setup_deploy_runtime macro: ${targetType}")
 	endif()
 
 	# Parse optional arguments
-	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD;QML_DIR;CODESIGN_ENTITLEMENTS;CODESIGN_IDENTITY;PROVISION_PROFILE" "" ${ARGN})
+	cmake_parse_arguments(SDR "INSTALL;SIGN;NO_DEPENDENCIES;EXPORT_TARGET" "BUNDLE_DIR;RUNTIME_DIR;MODULE_DIR;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD;QML_DIR;CODESIGN_ENTITLEMENTS;CODESIGN_IDENTITY;PROVISION_PROFILE;SCRIPT_POSTFIX;DEPLOY_DESTINATION" "" ${ARGN})
 
 	# Get signing options
 	if(SDR_SIGN)
@@ -1647,6 +1650,14 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	if(SDR_RUNTIME_DIR)
 		set(RUNTIME_INSTALL_DIR "${SDR_RUNTIME_DIR}")
 	endif()
+	set(MODULE_INSTALL_DIR "bin")
+	if(SDR_MODULE_DIR)
+		set(MODULE_INSTALL_DIR "${SDR_MODULE_DIR}")
+	endif()
+	# If target is MODULE, force RUNTIME_INSTALL_DIR to MODULE_INSTALL_DIR so that the runtime dependencies are installed in the same folder as the module
+	if(${targetType} STREQUAL "MODULE_LIBRARY")
+		set(RUNTIME_INSTALL_DIR "${MODULE_INSTALL_DIR}")
+	endif()
 
 	set(QML_DIR_ARG "")
 	if(SDR_QML_DIR)
@@ -1655,7 +1666,7 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 
 	# Deploy runtime dependencies
 	if(NOT ${SDR_NO_DEPENDENCIES})
-		cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} INSTALL_DESTINATION ${RUNTIME_INSTALL_DIR} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION} ${QML_DIR_ARG})
+		cu_deploy_runtime_target(${ARGV} ${SIGN_COMMAND_OPTIONS} INSTALL_DESTINATION ${RUNTIME_INSTALL_DIR} DEP_SEARCH_DIRS_DEBUG ${depSearchDirsDebug} DEP_SEARCH_DIRS_OPTIMIZED ${depSearchDirsOptimized} QT_MAJOR_VERSION ${QT_MAJOR_VERSION} ${QML_DIR_ARG} SCRIPT_POSTFIX ${SDR_SCRIPT_POSTFIX} DEPLOY_DESTINATION ${SDR_DEPLOY_DESTINATION})
 	endif()
 
 	get_target_property(targetImported ${TARGET_NAME} IMPORTED)
@@ -1705,7 +1716,7 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 			endif()
 		else()
 			# Install the target
-			install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} ${EXPORT_TARGET_COMMANDS} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
+			install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} ${EXPORT_TARGET_COMMANDS} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR} LIBRARY DESTINATION ${MODULE_INSTALL_DIR})
 			if(${SDR_EXPORT_TARGET})
 				install(EXPORT ${TARGET_NAME} DESTINATION cmake)
 			endif()
