@@ -91,6 +91,7 @@ endfunction()
 #  - "DEP_SEARCH_DIRS_OPTIMIZED <path>..." => list of additional directories to search for dependencies when building optimized binaries
 #  - "QT_MAJOR_VERSION <version>" => override default Qt major version (which is 5)
 #  - "ATTACH_TO_TARGET_POSTBUILD <target>" => Attach deploy actions to the specified target instead of the target itself (useful for IMPORTED targets)
+#  - "SCRIPT_POSTFIX <string>" => Append a postfix to the generated script name (useful for multiple calls to this function for the same target)
 function(cu_deploy_runtime_target TARGET_NAME)
 	# Check for cmake minimum version
 	cmake_minimum_required(VERSION 3.14)
@@ -100,12 +101,12 @@ function(cu_deploy_runtime_target TARGET_NAME)
 
 	get_target_property(_IS_BUNDLE ${TARGET_NAME} MACOSX_BUNDLE)
 
+	# Parse optional arguments
+	cmake_parse_arguments(CUDRT "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;DEPLOY_DESTINATION;SIGN_COMMAND;CODESIGN_IDENTITY;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD;SCRIPT_POSTFIX" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
+
 	# We generate a cmake script that will contain all the commands
 	string(REPLACE ":" "_" SANITIZED_TARGET_NAME "${TARGET_NAME}")
-	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${SANITIZED_TARGET_NAME}.cmake)
-
-	# Parse optional arguments
-	cmake_parse_arguments(CUDRT "INSTALL;SIGN" "QML_DIR;INSTALL_DESTINATION;DEPLOY_DESTINATION;SIGN_COMMAND;CODESIGN_IDENTITY;QT_MAJOR_VERSION;ATTACH_TO_TARGET_POSTBUILD" "SIGNTOOL_OPTIONS;SIGNTOOL_AGAIN_OPTIONS;CODESIGN_OPTIONS;DEP_SEARCH_DIRS_DEBUG;DEP_SEARCH_DIRS_OPTIMIZED" ${ARGN})
+	set(DEPLOY_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/cu_deploy_runtime_$<CONFIG>_${SANITIZED_TARGET_NAME}${CUDRT_SCRIPT_POSTFIX}.cmake)
 
 	if(NOT CUDRT_INSTALL_DESTINATION)
 		set(CUDRT_INSTALL_DESTINATION "bin")
