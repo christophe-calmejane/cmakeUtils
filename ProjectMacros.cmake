@@ -438,8 +438,13 @@ function(cu_private_sign_postbuild_binary TARGET_NAME BINARY_PATH BINARY_NAME)
 	)
 endfunction()
 
+###############################################################################
 # Sign a binary after installation, using install rules
-function(cu_private_sign_installed_binary BINARY_PATH)
+# This must be called after the install rule of a code signed binary whenever CMake modifies the binary during installation (typically when it rewrites the RPATH), as such a modification invalidates the code signature (except for ad-hoc linker signatures, which are transparently regenerated).
+# Not required when using the Xcode generator, which handles signing itself.
+# Mandatory parameters:
+#  - BINARY_PATH -> Path of the binary to sign, relative to the install prefix (may contain generator expressions)
+function(cu_sign_installed_binary BINARY_PATH)
 	# Xcode already forces automatic signing, so only sign for the other cases
 	if(NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
 		# Get signing options
@@ -460,6 +465,11 @@ function(cu_private_sign_installed_binary BINARY_PATH)
 			"${CODESIGNING_CODE}"
 		)
 	endif()
+endfunction()
+
+# Legacy name of cu_sign_installed_binary, kept to detect user code still calling the previously private function
+function(cu_private_sign_installed_binary BINARY_PATH)
+	message(FATAL_ERROR "cu_private_sign_installed_binary() has been made public and renamed, call cu_sign_installed_binary() instead")
 endfunction()
 
 #
@@ -1712,7 +1722,7 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 			# We want to install and sign the imported target but only if the target we are attached to is not a bundle (otherwise we assume TARGET_NAME is being copied inside the bundle)
 			if(SDR_SIGN AND NOT ${isAttachedToBundle})
 				install(${INSTALL_TARGET_KEYWORD} ${TARGET_NAME} ${EXPORT_TARGET_COMMANDS} BUNDLE DESTINATION ${BUNDLE_INSTALL_DIR} RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR})
-				cu_private_sign_installed_binary("${RUNTIME_INSTALL_DIR}/$<TARGET_FILE_NAME:${TARGET_NAME}>")
+				cu_sign_installed_binary("${RUNTIME_INSTALL_DIR}/$<TARGET_FILE_NAME:${TARGET_NAME}>")
 			endif()
 		else()
 			# Install the target
