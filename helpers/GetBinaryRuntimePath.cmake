@@ -40,17 +40,17 @@ function(cu_private_get_binary_runpaths INPUT_TEXT SECTION_MATCH_REGEX PATHS_MAT
 	set(${PATHS_OUTPUT} ${${PATHS_OUTPUT}} PARENT_SCOPE)
 endfunction()
 
-function(cu_private_find_replacement_in_runpaths ABSOLUTE_BIN_DIR RUNPATHS MATCH_PATTERN MATCH_REPLACEMENT REPLACEMENT_OUTPUT)
+function(cu_private_find_replacement_in_runpaths ABSOLUTE_BIN_DIR RUNPATHS MATCH_PATTERN MATCH_REPLACEMENTS REPLACEMENT_OUTPUT)
 	# Default to binary directory
 	set(RPATH "${ABSOLUTE_BIN_DIR}")
 
 	# Search all runpaths for a suitable replacement
 	foreach(RUNPATH ${RUNPATHS})
-		# Check if we have replacement to do
+		# Check if we have replacement to do (do not rely on CMAKE_MATCH_COUNT as the suffix group may legitimately be empty, e.g. a runpath of just "@loader_path")
 		string(REGEX MATCH "${MATCH_PATTERN}" REPLACEMENT_RESULT "${RUNPATH}")
-		if(CMAKE_MATCH_COUNT EQUAL 2)
+		if(REPLACEMENT_RESULT)
 			# Check for supported replacement
-			if("${CMAKE_MATCH_1}" STREQUAL "${MATCH_REPLACEMENT}")
+			if("${CMAKE_MATCH_1}" IN_LIST MATCH_REPLACEMENTS)
 				set(RPATH "${ABSOLUTE_BIN_DIR}${CMAKE_MATCH_2}")
 				break()
 			endif()
@@ -117,8 +117,8 @@ function(cu_get_binary_runtime_path)
 		set(RUNPATHS "")
 		cu_private_get_binary_runpaths("${CMD_OUTPUT}" "LC_RPATH[^\n]*\n[ \t]+cmdsize[^\n]*\n[ \t]+path[ ]+[^(]+ \\(" "path[ ]+([^ ]+)" "([^:]+)" RUNPATHS)
 
-		# Find a suitable replacement
-		cu_private_find_replacement_in_runpaths("${ABSOLUTE_BIN_DIR}" "${RUNPATHS}" "(^\\@[^/]+)(.+)" "@executable_path" RPATH)
+		# Find a suitable replacement (@loader_path is used by self-contained libraries and plugins, whose dependencies live next to the binary itself)
+		cu_private_find_replacement_in_runpaths("${ABSOLUTE_BIN_DIR}" "${RUNPATHS}" "(^\\@[^/]+)(.*)" "@executable_path;@loader_path" RPATH)
 
 	else()
 		set(READELF_COMMAND "readelf")
@@ -134,7 +134,7 @@ function(cu_get_binary_runtime_path)
 		cu_private_get_binary_runpaths("${CMD_OUTPUT}" "\\(RUNPATH\\)[^[]+\\[[^]]+\\]" "\\[([^]]+)\\]" "([^:]+)" RUNPATHS)
 
 		# Find a suitable replacement
-		cu_private_find_replacement_in_runpaths("${ABSOLUTE_BIN_DIR}" "${RUNPATHS}" "(^\\$[^/]+)(.+)" "$ORIGIN" RPATH)
+		cu_private_find_replacement_in_runpaths("${ABSOLUTE_BIN_DIR}" "${RUNPATHS}" "(^\\$[^/]+)(.*)" "$ORIGIN" RPATH)
 
 	endif()
 
