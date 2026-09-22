@@ -7,6 +7,10 @@ if(CU_GET_BINARY_RUNTIME_PATH_INCLUDED)
 endif()
 set(CU_GET_BINARY_RUNTIME_PATH_INCLUDED true)
 
+# Due to a bug in some CMake versions, force CMP0057
+cmake_policy(PUSH)
+cmake_policy(SET CMP0057 NEW) # Support new IN_LIST if() operator
+
 ##################################
 # Internal functions
 function(cu_private_get_binary_runpaths INPUT_TEXT SECTION_MATCH_REGEX PATHS_MATCH_REGEX PATH_SPLIT_REGEX PATHS_OUTPUT)
@@ -141,3 +145,5 @@ function(cu_get_binary_runtime_path)
 	set(${CUGBRP_RPATH_OUTPUT} "${RPATH}" PARENT_SCOPE)
 
 endfunction()
+
+cmake_policy(POP)
