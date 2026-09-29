@@ -18,6 +18,7 @@
 #   CU_COPYRIGHT_HOLDER (Defaults to '${CU_COMPANY_NAME}'): Copyright holder of your project
 #   CU_BETA_TAG (Defaults to '-beta'): Tag to append to the version number to indicate a beta version
 #   [windows] CU_SIGNING_TOOL: Tool to use for signing binaries (signtool or azuresigntool, defaults to signtool)
+#   [macOS] CU_PROVISIONING_PROFILE: Provisioning profile of the main application (not used automatically, as it only matches one App ID: pass it to the PROVISION_PROFILE option of cu_setup_deploy_runtime for the matching target)
 
 # cu_setup_project method
 #  This method is used to setup a project that can contain one or more targets. Some variables can be overridden before the call, otherwise the global variables are used.
@@ -290,7 +291,7 @@ function(cu_get_sign_command_options OUT_VAR)
 		set(SIGNING_DESCRIPTION_SELECTOR "")
 	endif()
 
-	set(${OUT_VAR} SIGN_COMMAND \"${SIGN_TOOL}\" SIGNTOOL_OPTIONS sign ${CU_SIGNTOOL_OPTIONS} ${SIGNING_DESCRIPTION_SELECTOR} "\"${CU_COMPANY_NAME} ${PROJECT_NAME}\"" CODESIGN_OPTIONS --timestamp --deep --strict --force --options=runtime CODESIGN_IDENTITY \"${CU_BINARY_SIGNING_IDENTITY}\" PARENT_SCOPE)
+	set(${OUT_VAR} SIGN_COMMAND \"${SIGN_TOOL}\" SIGNTOOL_OPTIONS sign ${CU_SIGNTOOL_OPTIONS} ${SIGNING_DESCRIPTION_SELECTOR} "\"${CU_COMPANY_NAME} ${PROJECT_NAME}\"" CODESIGN_OPTIONS --timestamp --strict --force --options=runtime CODESIGN_IDENTITY \"${CU_BINARY_SIGNING_IDENTITY}\" PARENT_SCOPE)
 endfunction()
 
 # Extract the codesign identity from a provisioning profile by matching its DeveloperCertificates
@@ -359,13 +360,6 @@ function(cu_get_sign_command_options_for_target TARGET_NAME OUT_VAR)
 	cu_get_sign_command_options(_BASE_OPTIONS)
 
 	if(APPLE)
-		# Check for per-target entitlements
-		get_target_property(_ENTITLEMENTS ${TARGET_NAME} CU_CODESIGN_ENTITLEMENTS)
-		if(_ENTITLEMENTS)
-			# Inject --entitlements right after the CODESIGN_OPTIONS keyword in the options list
-			string(REPLACE "CODESIGN_OPTIONS" "CODESIGN_OPTIONS --entitlements;\"${_ENTITLEMENTS}\"" _BASE_OPTIONS "${_BASE_OPTIONS}")
-		endif()
-
 		# Check for per-target identity override
 		get_target_property(_IDENTITY ${TARGET_NAME} CU_CODESIGN_IDENTITY)
 		if(_IDENTITY)
@@ -374,6 +368,12 @@ function(cu_get_sign_command_options_for_target TARGET_NAME OUT_VAR)
 			math(EXPR _last "${_len} - 1")
 			list(REMOVE_AT _BASE_OPTIONS ${_last})
 			list(APPEND _BASE_OPTIONS "\"${_IDENTITY}\"")
+		endif()
+
+		# Check for per-target entitlements (only applied to the target itself, not to the nested code of its bundle)
+		get_target_property(_ENTITLEMENTS ${TARGET_NAME} CU_CODESIGN_ENTITLEMENTS)
+		if(_ENTITLEMENTS)
+			list(APPEND _BASE_OPTIONS CODESIGN_ENTITLEMENTS "\"${_ENTITLEMENTS}\"")
 		endif()
 	endif()
 
