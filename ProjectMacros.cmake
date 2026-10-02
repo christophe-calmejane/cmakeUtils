@@ -350,6 +350,28 @@ function(cu_get_identity_from_profile PROFILE_PATH OUT_VAR)
 	set(${OUT_VAR} "" PARENT_SCOPE)
 endfunction()
 
+# Get the App ID (value of the com.apple.application-identifier entitlement, including the Team ID prefix) and the Team ID a provisioning profile has been created for (macOS only).
+# Sets ${APPLICATION_IDENTIFIER_VAR} and ${TEAM_IDENTIFIER_VAR} in PARENT_SCOPE.
+# Requires: security, python3 (both available by default on macOS).
+function(cu_get_identifiers_from_profile PROFILE_PATH APPLICATION_IDENTIFIER_VAR TEAM_IDENTIFIER_VAR)
+	execute_process(
+		COMMAND bash -c "security cms -D -i '${PROFILE_PATH}' 2>/dev/null | python3 -c \"\nimport plistlib, sys\nplist = plistlib.loads(sys.stdin.buffer.read())\nprint(plist['Entitlements']['com.apple.application-identifier'])\nprint(plist['TeamIdentifier'][0])\n\""
+		OUTPUT_VARIABLE PROFILE_IDENTIFIERS
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		ERROR_QUIET
+		RESULT_VARIABLE RESULT
+	)
+	if(NOT RESULT EQUAL 0 OR NOT PROFILE_IDENTIFIERS)
+		message(FATAL_ERROR "cu_get_identifiers_from_profile: Failed to read the App ID and Team ID from profile: ${PROFILE_PATH}")
+	endif()
+
+	string(REPLACE "\n" ";" PROFILE_IDENTIFIERS "${PROFILE_IDENTIFIERS}")
+	list(GET PROFILE_IDENTIFIERS 0 APPLICATION_IDENTIFIER)
+	list(GET PROFILE_IDENTIFIERS 1 TEAM_IDENTIFIER)
+	set(${APPLICATION_IDENTIFIER_VAR} "${APPLICATION_IDENTIFIER}" PARENT_SCOPE)
+	set(${TEAM_IDENTIFIER_VAR} "${TEAM_IDENTIFIER}" PARENT_SCOPE)
+endfunction()
+
 # Get sign command options for a specific target, with support for per-target entitlements and signing identity overrides.
 # This function first checks for target-specific properties, then falls back to the global options.
 # Supported target properties (set via set_target_properties):
@@ -1591,7 +1613,7 @@ endfunction()
 #  - "ATTACH_TO_TARGET_POSTBUILD <target>" -> Attach deploy actions to the specified target instead of the target itself (required for IMPORTED targets)
 #  - "CODESIGN_ENTITLEMENTS <path>" -> [macOS] Path to an entitlements plist to embed in the codesign signature
 #  - "CODESIGN_IDENTITY <identity>" -> [macOS] Override the codesign identity for this target (SHA-1 hash or identity name)
-#  - "PROVISION_PROFILE <path>" -> [macOS] Provisioning profile to embed in the .app bundle (must be a macOS bundle target). Auto-detects the signing identity from the profile if CODESIGN_IDENTITY is not set
+#  - "PROVISION_PROFILE <path>" -> [macOS] Provisioning profile to embed in the .app bundle (must be a macOS bundle target). Auto-detects the signing identity from the profile if CODESIGN_IDENTITY is not set. Fails if the App ID of the profile does not match the bundle identifier of the target (MACOSX_BUNDLE_GUI_IDENTIFIER property), and adds the App ID and Team ID of the profile to the CODESIGN_ENTITLEMENTS
 #  - "SCRIPT_POSTFIX <string>" => Append a postfix to the generated script name (useful for multiple calls to this function for the same target)
 #  - "DEPLOY_DESTINATION <absolute path>" => If defined, absolute path to the folder where the runtime dependencies will be deployed (not installed) instead of using the default one (returned by cu_get_binary_runtime_path)
 function(cu_setup_deploy_runtime TARGET_NAME)
@@ -1610,15 +1632,34 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 	if(SDR_SIGN)
 		# Handle macOS codesign entitlements, identity, and provisioning profile
 		if(APPLE)
-			# Set per-target entitlements
-			if(SDR_CODESIGN_ENTITLEMENTS)
-				set_target_properties(${TARGET_NAME} PROPERTIES CU_CODESIGN_ENTITLEMENTS "${SDR_CODESIGN_ENTITLEMENTS}")
-			endif()
+			set(_ENTITLEMENTS "${SDR_CODESIGN_ENTITLEMENTS}")
 
 			if(SDR_PROVISION_PROFILE)
 				# Validate that the provisioning profile file exists
 				if(NOT EXISTS "${SDR_PROVISION_PROFILE}")
 					message(FATAL_ERROR "[${TARGET_NAME}] PROVISION_PROFILE is set but the file does not exist: ${SDR_PROVISION_PROFILE}")
+				endif()
+				set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${SDR_PROVISION_PROFILE}")
+
+				# Validate that the provisioning profile has been created for the bundle identifier of the target
+				cu_get_identifiers_from_profile("${SDR_PROVISION_PROFILE}" _PROFILE_APPLICATION_IDENTIFIER _PROFILE_TEAM_IDENTIFIER)
+				get_target_property(_BUNDLE_IDENTIFIER ${TARGET_NAME} MACOSX_BUNDLE_GUI_IDENTIFIER)
+				if(_BUNDLE_IDENTIFIER AND NOT "${_PROFILE_APPLICATION_IDENTIFIER}" STREQUAL "${_PROFILE_TEAM_IDENTIFIER}.${_BUNDLE_IDENTIFIER}")
+					message(FATAL_ERROR "[${TARGET_NAME}] Provisioning profile ${SDR_PROVISION_PROFILE} has been created for App ID '${_PROFILE_APPLICATION_IDENTIFIER}', which does not match the bundle identifier '${_BUNDLE_IDENTIFIER}'. Create an App ID (and its provisioning profile) for this bundle identifier.")
+				endif()
+
+				# Add the App ID and Team ID of the profile to the entitlements (as Xcode does), so that macOS checks the embedded profile actually matches the application
+				if(SDR_CODESIGN_ENTITLEMENTS)
+					set(_ENTITLEMENTS "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.entitlements")
+					configure_file("${SDR_CODESIGN_ENTITLEMENTS}" "${_ENTITLEMENTS}" COPYONLY)
+					foreach(_ENTRY "com.apple.application-identifier string ${_PROFILE_APPLICATION_IDENTIFIER}" "com.apple.developer.team-identifier string ${_PROFILE_TEAM_IDENTIFIER}")
+						string(REGEX MATCH "^[^ ]+" _KEY "${_ENTRY}")
+						execute_process(COMMAND /usr/libexec/PlistBuddy -c "Delete :${_KEY}" "${_ENTITLEMENTS}" OUTPUT_QUIET ERROR_QUIET)
+						execute_process(COMMAND /usr/libexec/PlistBuddy -c "Add :${_ENTRY}" "${_ENTITLEMENTS}" RESULT_VARIABLE _RESULT OUTPUT_QUIET)
+						if(NOT _RESULT EQUAL 0)
+							message(FATAL_ERROR "[${TARGET_NAME}] Failed to add ${_KEY} to entitlements file: ${_ENTITLEMENTS}")
+						endif()
+					endforeach()
 				endif()
 
 				# Auto-detect signing identity from the profile if not explicitly provided
@@ -1630,6 +1671,11 @@ function(cu_setup_deploy_runtime TARGET_NAME)
 				message(STATUS "[${TARGET_NAME}] No provisioning profile configured. To use restricted entitlements, manually embed a profile and re-sign:\n"
 					"  cp /path/to/profile.provisionprofile ${TARGET_NAME}.app/Contents/embedded.provisionprofile\n"
 					"  codesign --force --sign <IDENTITY_MATCHING_PROFILE> --entitlements ${SDR_CODESIGN_ENTITLEMENTS} --options runtime ${TARGET_NAME}.app")
+			endif()
+
+			# Set per-target entitlements
+			if(_ENTITLEMENTS)
+				set_target_properties(${TARGET_NAME} PROPERTIES CU_CODESIGN_ENTITLEMENTS "${_ENTITLEMENTS}")
 			endif()
 
 			# Set per-target signing identity override
