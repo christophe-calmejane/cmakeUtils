@@ -1181,8 +1181,8 @@ function(cu_setup_library_options TARGET_NAME)
 	endif()
 
 	if(MSVC)
-		# Set WIN32 version since we want to target Win10 minimum
-		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00 NTDDI_VERSION=0x0A000000)
+		# Set WIN32 version since we want to target Win10 1703 Redstone 2 minimum
+		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00 NTDDI_VERSION=0x0A000003)
 
 		# Ensure MSVC correctly reports the C++ standard version via __cplusplus. Without this flag, MSVC always defines __cplusplus as 199711L regardless of the actual standard
 		target_compile_options(${TARGET_NAME} PRIVATE /Zc:__cplusplus)
@@ -1498,8 +1498,8 @@ function(cu_setup_executable_options TARGET_NAME)
 	endif()
 
 	if(MSVC)
-		# Set WIN32 version since we want to target Win10 minimum
-		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00 NTDDI_VERSION=0x0A000000)
+		# Set WIN32 version since we want to target Win10 1703 Redstone 2 minimum
+		target_compile_definitions(${TARGET_NAME} PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00 NTDDI_VERSION=0x0A000003)
 
 		# Ensure MSVC correctly reports the C++ standard version via __cplusplus. Without this flag, MSVC always defines __cplusplus as 199711L regardless of the actual standard
 		target_compile_options(${TARGET_NAME} PRIVATE /Zc:__cplusplus)
