@@ -15,6 +15,9 @@
 ;       * Uses the official MultiUser.nsh header (ships with NSIS 2.35+)
 ;       * Adds a page letting the user pick "All users" or "Just me"
 ;       * No UAC if "Just me" is chosen.
+;
+; Reinstalls reuse the saved installation directory for the selected scope.
+; Switching scope in multi-user mode uses that scope's installation directory.
 ; ---------------------------------------------------------------------------
 
 ; Include our custom variables
@@ -40,6 +43,7 @@ Var ADD_TO_PATH_CURRENT_USER
 Var INSTALL_DESKTOP
 Var IS_DEFAULT_INSTALLDIR
 Var PrevInstVers
+Var PrevInstallDir
 Var PREV_INSTALL_REG_ROOT
 Var ShouldLaunch
 
@@ -78,6 +82,7 @@ SetCompressor @CPACK_NSIS_COMPRESSOR@
     !define MULTIUSER_INSTALLMODE_INSTDIR "@CPACK_PACKAGE_INSTALL_DIRECTORY@"
     !define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_KEY "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
     !define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_VALUENAME ""
+    !define MULTIUSER_INSTALLMODE_FUNCTION RestorePreviousInstallDir
     !define MULTIUSER_INSTALLMODE_ALLOW_BOTH_INSTALLATIONS 0
     !define MULTIUSER_INSTALLMODE_ALLOW_ELEVATION 1
     ; Allow elevation during silent installs (/S /AllUsers): show the UAC prompt rather than aborting when the installer is run unelevated.
@@ -94,6 +99,7 @@ SetCompressor @CPACK_NSIS_COMPRESSOR@
 
     ;Default installation folder
     InstallDir "@CPACK_NSIS_INSTALL_ROOT@\@CPACK_PACKAGE_INSTALL_DIRECTORY@"
+    InstallDirRegKey HKLM "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" ""
 
     ;Require administrator access
     RequestExecutionLevel admin
@@ -999,6 +1005,20 @@ SectionEnd
 ;--------------------------------
 ; Installer initialization
 
+!ifdef MULTIUSER_ENABLED
+Function RestorePreviousInstallDir
+; The old uninstaller removes the registry value before the mode page runs.
+StrCmp $PrevInstallDir "" done
+StrCmp $PREV_INSTALL_REG_ROOT "HKLM" 0 current_user
+StrCmp $MultiUser.InstallMode "AllUsers" restore done
+current_user:
+StrCmp $MultiUser.InstallMode "CurrentUser" 0 done
+restore:
+StrCpy $INSTDIR $PrevInstallDir
+done:
+FunctionEnd
+!endif
+
 Function .onInit
 
 !ifdef MULTIUSER_ENABLED
@@ -1035,6 +1055,12 @@ StrCmp $0 "" inst
 !endif
 
 has_prev:
+StrLen $2 "\Uninstall.exe"
+StrCpy $PrevInstallDir $0 -$2
+!ifdef MULTIUSER_ENABLED
+Call RestorePreviousInstallDir
+!endif
+
 ; Check if currently installed version is newer (read from the registry root we found it in)
 !ifdef MULTIUSER_ENABLED
 StrCmp $PREV_INSTALL_REG_ROOT "HKLM" prev_vers_hklm prev_vers_hkcu
@@ -1051,20 +1077,20 @@ IntCmp ${CURR_INST_FULL_VERS} $PrevInstVers samevers morerecent
 
 ; Newer version
 MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION \
-"An older version of @CPACK_NSIS_PACKAGE_NAME@ is already installed. $\n$\nDo you want to uninstall the old version before installing the new one?" \
+"An older version of @CPACK_NSIS_PACKAGE_NAME@ is already installed in:$\n$PrevInstallDir$\n$\nDo you want to uninstall the old version before installing the new one?" \
 /SD IDYES IDYES uninst IDNO inst
 Abort
 
 samevers:
 MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION \
-"The same version of @CPACK_NSIS_PACKAGE_NAME@ is already installed. $\n$\nDo you want to uninstall it before installing the new one?" \
+"The same version of @CPACK_NSIS_PACKAGE_NAME@ is already installed in:$\n$PrevInstallDir$\n$\nDo you want to uninstall it before installing the new one?" \
 /SD IDCANCEL IDYES uninst IDNO inst
 Abort
 
 ;More recent version already installed
 morerecent:
 MessageBox MB_YESNO|MB_ICONEXCLAMATION \
-"A more recent version of @CPACK_NSIS_PACKAGE_NAME@ is already installed. $\n$\nDo you really want to install this older version (currently installed version will be removed first)?" \
+"A more recent version of @CPACK_NSIS_PACKAGE_NAME@ is already installed in:$\n$PrevInstallDir$\n$\nDo you really want to install this older version (currently installed version will be removed first)?" \
 /SD IDNO IDYES uninst
 Abort
 
@@ -1075,8 +1101,6 @@ Abort
 ;Run the uninstaller
 uninst:
 ClearErrors
-StrLen $2 "\Uninstall.exe"
-StrCpy $3 $0 -$2 # remove "\Uninstall.exe" from UninstallString to get path
 
 !ifdef MULTIUSER_ENABLED
 ; A system-wide (HKLM) previous install can only be removed with admin rights,
@@ -1110,7 +1134,7 @@ Abort
 uninst_inplace:
 !endif
 ; Per-user previous install, or admin-only mode (already elevated): in place.
-ExecWait '"$0" /S _?=$3' ;Do not copy the uninstaller to a temp file
+ExecWait '"$0" /S _?=$PrevInstallDir' ;Do not copy the uninstaller to a temp file
 IfErrors uninst_failed inst
 uninst_failed:
 MessageBox MB_OK|MB_ICONSTOP "Uninstall failed." /SD IDOK
