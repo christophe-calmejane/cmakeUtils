@@ -146,18 +146,18 @@ function(cu_generate_csharp_nuget_target)
 		"# Add output folder of the target to the search directories\n"
 		"list(APPEND DEPENDENCIES_SEARCH_DIRS \"$<TARGET_FILE_DIR:${CUGCSNT_TARGET_NAME}>\")\n"
 	)
-	# Add the search directories (for debug configuration)
+	# Add the search directories (for debug configuration), skipping the ones that do not exist (e.g. no 'bin' folder with a static vcpkg triplet)
 	foreach(DEP_SEARCH_DIR ${depSearchDirsDebug})
 		string(APPEND GENERATE_CSPROJ_SCRIPT_CONTENT
-			"if(\"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+			"if(\"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\" AND EXISTS \"${DEP_SEARCH_DIR}\")\n"
 			"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
 			"endif()\n"
 		)
 	endforeach()
-	# Add the search directories (for non-debug configuration)
+	# Add the search directories (for non-debug configuration), skipping the ones that do not exist
 	foreach(DEP_SEARCH_DIR ${depSearchDirsOptimized})
 		string(APPEND GENERATE_CSPROJ_SCRIPT_CONTENT
-			"if(NOT \"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\")\n"
+			"if(NOT \"$<CONFIG>\" MATCHES \"^([Dd][Ee][Bb][Uu][Gg])$\" AND EXISTS \"${DEP_SEARCH_DIR}\")\n"
 			"\tlist(APPEND DEPENDENCIES_SEARCH_DIRS \"${DEP_SEARCH_DIR}\")\n"
 			"endif()\n"
 		)
