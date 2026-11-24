@@ -11,6 +11,7 @@
     <Title>@PACKAGE_NAME@</Title>
     <AssemblyName>@PACKAGE_NAME@</AssemblyName>
     <EnableDefaultItems>false</EnableDefaultItems>
+@CSPROJ_NATIVE_PROPERTIES@
     <RuntimeIdentifier>@CU_DOTNET_RID_NUGET@</RuntimeIdentifier>
     <RepositoryUrl>@CU_REPO_URL@</RepositoryUrl>
   </PropertyGroup>
