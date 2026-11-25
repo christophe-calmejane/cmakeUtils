@@ -277,3 +277,42 @@ endfunction()
 function(cu_generate_native_nuget_target)
 	cu_generate_csharp_nuget_target(NATIVE_ONLY ${ARGN})
 endfunction()
+
+########
+# Generate a native NuGet package for a plugin (MODULE library) discovered by its host through a manifest file.
+# The package content mirrors a host plugins directory, below runtimes/<RID>/native:
+#  - "<PLUGINS_FOLDER>/<manifest file>"
+#  - "<PLUGINS_FOLDER>/<TARGET_NAME>/<plugin binary and its runtime dependencies>" (the manifest must reference the binary relative to itself, ie. "<TARGET_NAME>/<binary file name>")
+# Mandatory parameters:
+#  - "TARGET_NAME <target name>" => Plugin target to package. Creates "<TARGET_NAME>-generate-csproj", "<TARGET_NAME>-nuget-pack" and "<TARGET_NAME>-nuget-push".
+#  - "MANIFEST <manifest path>" => Path to the plugin manifest file (generator expressions supported).
+# Optional parameters:
+#  - "PLUGINS_FOLDER <relative directory>" => Directory below runtimes/<RID>/native acting as the host plugins directory (default: plugins).
+#  - Any other parameter of cu_generate_native_nuget_target, except RUNTIME_SUBDIRECTORY.
+function(cu_generate_plugin_nuget_target)
+	cmake_parse_arguments(CUGPNT "" "TARGET_NAME;MANIFEST;PLUGINS_FOLDER;RUNTIME_SUBDIRECTORY" "RUNTIME_FILES" ${ARGN})
+
+	# Check required parameters validity
+	if(NOT CUGPNT_TARGET_NAME)
+		message(FATAL_ERROR "TARGET_NAME required")
+	endif()
+	if(NOT CUGPNT_MANIFEST)
+		message(FATAL_ERROR "MANIFEST required")
+	endif()
+	if(CUGPNT_RUNTIME_SUBDIRECTORY)
+		message(FATAL_ERROR "RUNTIME_SUBDIRECTORY is not supported, the plugin binary is always packaged in <PLUGINS_FOLDER>/<TARGET_NAME>")
+	endif()
+
+	# Default values
+	set(pluginsFolder "plugins")
+	if(CUGPNT_PLUGINS_FOLDER)
+		set(pluginsFolder "${CUGPNT_PLUGINS_FOLDER}")
+	endif()
+
+	cu_generate_native_nuget_target(
+		TARGET_NAME ${CUGPNT_TARGET_NAME}
+		RUNTIME_SUBDIRECTORY "${pluginsFolder}/${CUGPNT_TARGET_NAME}"
+		RUNTIME_FILES "${CUGPNT_MANIFEST}" "${pluginsFolder}" ${CUGPNT_RUNTIME_FILES}
+		${CUGPNT_UNPARSED_ARGUMENTS}
+	)
+endfunction()
